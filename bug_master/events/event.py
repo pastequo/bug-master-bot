@@ -9,7 +9,7 @@ from bug_master.consts import logger
 from bug_master.prow_job import ProwJobFailure
 
 
-class Event(ABC):
+class BaseEvent(ABC):
     def __init__(self, body: dict, bot: BugMasterBot, db: Session) -> None:
         self.validate_event(body)
         self._bot = bot
@@ -17,6 +17,20 @@ class Event(ABC):
         self._data: dict = body.get("event")
         self._event_id = body.get("event_id")
         self._event_time = body.get("event_time")
+
+    @classmethod
+    def validate_event(cls, body: dict):
+        if body.get("event", None) is None:
+            raise ValueError("Can't find event in given body")
+
+    @abstractmethod
+    async def handle(self, **kwargs) -> dict:
+        pass
+
+
+class Event(BaseEvent, ABC):
+    def __init__(self, body: dict, bot: BugMasterBot, db: Session) -> None:
+        super().__init__(body, bot, db)
         self._type = self._data.get("type", None)
         self._subtype = self._data.get("subtype", "")
         self._channel = self._data.get("channel")
@@ -28,15 +42,6 @@ class Event(ABC):
     @property
     def type(self):
         return self._type
-
-    @classmethod
-    def validate_event(cls, body: dict):
-        if body.get("event", None) is None:
-            raise ValueError("Can't find event in given body")
-
-    @abstractmethod
-    async def handle(self, **kwargs) -> dict:
-        pass
 
 
 class ChannelJoinEvent(Event):
@@ -80,6 +85,22 @@ class FileShareEvent(Event):
         if self.contain_files:
             await self._bot.refresh_configuration(self._channel, self._data.get("files", []))
         return {"msg": "Success", "Code": 200}
+
+
+class UrlVerificationEvent(BaseEvent):
+
+    def __init__(self, body: dict, bot: BugMasterBot, db: Session) -> None:
+        super().__init__(body, bot, db)
+        self.challenge = body.get("challenge", "")
+
+    async def handle(self, **kwargs) -> dict:
+        return {"msg": "Success", "Code": 200}
+
+    @classmethod
+    def validate_event(cls, body: dict):
+        if body.get("type", None) != "url_verification":
+            raise ValueError("Can't find url_verification type event")
+        logger.info("Url verification validation passed")
 
 
 class MessageChannelEvent(Event):

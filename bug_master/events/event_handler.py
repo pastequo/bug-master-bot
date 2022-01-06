@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from ..bug_master_bot import BugMasterBot
 from ..consts import logger
-from .event import ChannelJoinEvent, Event, FileShareEvent, MessageChannelEvent
+from .event import ChannelJoinEvent, Event, FileShareEvent, MessageChannelEvent, UrlVerificationEvent
 
 
 class NotEventError(Exception):
@@ -17,6 +17,7 @@ class NotSupportedEventError(Exception):
 
 class SupportedEvents:
     MESSAGE_TYPE = "message"
+    URL_VERIFICATION = "url_verification"
     CHANNEL_JOIN_SUBTYPE = "channel_join"
     FILE_SHARE_SUBTYPE = "file_share"
 
@@ -24,6 +25,7 @@ class SupportedEvents:
     def get_events_map(cls):
         return {
             (cls.MESSAGE_TYPE, ""): MessageChannelEvent,
+            (cls.URL_VERIFICATION, ""): UrlVerificationEvent,
             (cls.MESSAGE_TYPE, cls.FILE_SHARE_SUBTYPE): FileShareEvent,
             (cls.MESSAGE_TYPE, cls.CHANNEL_JOIN_SUBTYPE): ChannelJoinEvent,
         }
@@ -36,6 +38,9 @@ class EventHandler:
 
     @classmethod
     def validate_event_body(cls, body: dict) -> Tuple[str, str]:
+        if "type" in body and body["type"] == "url_verification":
+            return "url_verification", ""
+
         if body.get("event", None) is None:
             raise NotEventError("Can't find event in given body")
 

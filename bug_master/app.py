@@ -11,6 +11,7 @@ from . import consts, database
 from .bug_master_bot import BugMasterBot
 from .consts import logger
 from .events import EventHandler
+from .events import UrlVerificationEvent
 
 
 class ContextIncludedRoute(APIRoute):
@@ -55,9 +56,17 @@ signature_verifier = signature.SignatureVerifier(consts.SIGNING_SECRET)
 async def root(request: Request):
     event = await events_handler.get_event(await request.json())
 
+    if isinstance(event, UrlVerificationEvent):
+        logger.info("Url verification event - success")
+        return {"msg": "Success", "Code": 200}
+
     if event is None or request.headers.get("x-slack-retry-num", False):
         logger.info(f"Skipping duplicate or unsupported event: {event}")
         return {"msg": "Success", "Code": 200}
+
+    if isinstance(event, UrlVerificationEvent):
+        logger.info("Url verification event - success")
+        return {"status": 200, "challenge": event.challenge}
 
     channel_info = await bot.get_channel_info(event.channel)
     return await event.handle(channel_info=channel_info)
