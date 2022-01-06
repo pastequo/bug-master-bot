@@ -8,6 +8,7 @@ SIGNING_SECRET = os.getenv("SIGNING_SECRET")
 BOT_USER_TOKEN = os.getenv("BOT_USER_TOKEN")
 WEBSERVER_PORT = int(os.getenv("WEBSERVER_PORT", 8080))
 WEBSERVER_HOST = os.getenv("WEBSERVER_HOST", default="0.0.0.0")
+SQLALCHEMY_DATABASE_PATH = os.getenv("SQLALCHEMY_DATABASE_PATH", default="./bot.db")
 
 if APP_TOKEN is None:
     raise EnvironmentError("Missing app token (APP_TOKEN) environment variable")
