@@ -2,15 +2,14 @@ import json
 from typing import Callable
 
 import uvicorn
+from fastapi import FastAPI, Request, Response
 from fastapi.routing import APIRoute, APIRouter
 from slack_sdk import signature
-
-from fastapi import FastAPI, Request, Response
 from sqlalchemy.orm import Session
 
 from . import consts, database
-from .consts import logger
 from .bug_master_bot import BugMasterBot
+from .consts import logger
 from .events import EventHandler
 
 
@@ -29,14 +28,14 @@ class ContextIncludedRoute(APIRoute):
                 return Response(
                     content=json.dumps({"code": "401", "message": "No proper authentication credentials"}),
                     status_code=401,
-                    media_type="application/json"
+                    media_type="application/json",
                 )
 
             # logger.debug(f"Got a valid request, {request.method} {request.url} {body}")
             return Response(
                 content=json.dumps({"challenge": json.loads(body).get("challenge", "")}),
                 status_code=response.status_code,
-                media_type="application/json"
+                media_type="application/json",
             )
 
         return custom_route_handler

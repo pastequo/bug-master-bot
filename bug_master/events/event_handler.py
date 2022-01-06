@@ -1,10 +1,10 @@
-from typing import Type, Union, Tuple
+from typing import Tuple, Type, Union
 
 from sqlalchemy.orm import Session
 
-from .event import Event, MessageChannelEvent, ChannelJoinEvent, FileShareEvent
 from ..bug_master_bot import BugMasterBot
 from ..consts import logger
+from .event import ChannelJoinEvent, Event, FileShareEvent, MessageChannelEvent
 
 
 class NotEventError(Exception):

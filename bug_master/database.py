@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./bot.db"
 
@@ -22,7 +22,7 @@ def get_session() -> Session:
 
 
 def create_model(session: Session, model: Base, **kwargs):
-    """ Create or get if already exist """
+    """Create or get if already exist"""
     instance = session.query(model).filter_by(**kwargs).first()
 
     if not instance:

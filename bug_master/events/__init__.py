@@ -1,8 +1,3 @@
-from .event_handler import EventHandler, SupportedEvents, NotEventError, NotSupportedEventError
+from .event_handler import EventHandler, NotEventError, NotSupportedEventError, SupportedEvents
 
-__all__ = [
-    "EventHandler",
-    "SupportedEvents",
-    "NotEventError",
-    "NotSupportedEventError"
-]
+__all__ = ["EventHandler", "SupportedEvents", "NotEventError", "NotSupportedEventError"]

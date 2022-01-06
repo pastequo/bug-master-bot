@@ -92,8 +92,10 @@ class MessageChannelEvent(Event):
         self._ts = self._data.get("ts")
 
     def __str__(self):
-        return f"id: {self._event_id}, time: {self._event_time}, user: {self._user}, " \
-               f"channel: {self._channel} ts: {self._ts}, has_file: {self.contain_files}"
+        return (
+            f"id: {self._event_id}, time: {self._event_time}, user: {self._user}, "
+            f"channel: {self._channel} ts: {self._ts}, has_file: {self.contain_files}"
+        )
 
     @property
     def channel(self) -> str:
@@ -119,8 +121,9 @@ class MessageChannelEvent(Event):
 
         # ignore messages sent by bots or retries
         if self.is_self_event:
-            logger.info(f"Skipping event on channel {channel_name} sent by {self._bot.id}:{self._bot.name} - "
-                        f"event: {self}")
+            logger.info(
+                f"Skipping event on channel {channel_name} sent by {self._bot.id}:{self._bot.name} - " f"event: {self}"
+            )
             return {"msg": "Success", "Code": 200}
 
         if not self._bot.has_channel_configurations(self.channel):
@@ -128,8 +131,11 @@ class MessageChannelEvent(Event):
                 logger.info(f"Configurations loaded successfully from channel history for channel {channel_name}")
 
         if not self._bot.has_channel_configurations(self.channel):
-            await self._bot.add_comment(self.channel, f"Missing configuration file on channel {channel_name}. "
-                                                      "Please add configuration file or remove the bot.")
+            await self._bot.add_comment(
+                self.channel,
+                f"Missing configuration file on channel {channel_name}. "
+                "Please add configuration file or remove the bot.",
+            )
             return {"msg": "Failure", "Code": 401}
 
         logger.info(f"Handling event {self}")

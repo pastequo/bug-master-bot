@@ -36,8 +36,9 @@ class ProwJobFailure:
     async def glob(self, dir_path: str, result: dict):
         if dir_path.endswith("*"):
             dir_path = dir_path[:-1]
-        dir_content = await self.get_content(dir_path,
-                                             self._storage_link.replace(self.BASE_STORAGE_URL, self.DIRS_STORAGE_URL))
+        dir_content = await self.get_content(
+            dir_path, self._storage_link.replace(self.BASE_STORAGE_URL, self.DIRS_STORAGE_URL)
+        )
         for file in re.findall(r"> (junit_.*?)</a>", dir_content):
             file_path = urljoin(dir_path, file)
             content = await self.get_content(file_path)

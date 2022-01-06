@@ -5,10 +5,10 @@ from typing import Dict, Union
 
 import aiohttp
 import yaml
-from slack_sdk.web.async_slack_response import AsyncSlackResponse
 from slack_sdk import signature
-from slack_sdk.web.async_client import AsyncWebClient
 from slack_sdk.socket_mode.aiohttp import SocketModeClient
+from slack_sdk.web.async_client import AsyncWebClient
+from slack_sdk.web.async_slack_response import AsyncSlackResponse
 
 from .consts import logger
 
@@ -38,7 +38,7 @@ class BugMasterConfig:
 
     async def load(self, bot_token: str) -> "BugMasterConfig":
         content = {}
-        headers = {'Authorization': 'Bearer %s' % bot_token}
+        headers = {"Authorization": "Bearer %s" % bot_token}
 
         async with aiohttp.ClientSession(headers=headers) as session:
             async with session.get(self._url) as resp:
@@ -59,7 +59,8 @@ class BugMasterConfig:
             self.validate_configurations(content)
             return self
 
-    def validate_configurations(self, content):
+    @classmethod
+    def validate_configurations(cls, content):
         assert isinstance(content, list)
         assert isinstance(content[0], dict) if len(content) > 0 else True
 
@@ -101,8 +102,11 @@ class BugMasterBot:
 
     async def refresh_configuration(self, channel: str, files: str, from_history=False) -> bool:
         res = False
-        files = [f for f in sorted(files, key=lambda f: f["timestamp"])
-                 if f["title"].startswith("bug_master_configuration.yaml")]
+        files = [
+            f
+            for f in sorted(files, key=lambda f: f["timestamp"])
+            if f["title"].startswith("bug_master_configuration.yaml")
+        ]
         if not files:
             return res
 
@@ -118,8 +122,9 @@ class BugMasterBot:
             return False
 
         if not from_history:
-            await self.add_comment(channel, f"BugMasterBot configuration file `{self._config[channel].name}` "
-                                            f"updated successfully")
+            await self.add_comment(
+                channel, f"BugMasterBot configuration file `{self._config[channel].name}` " f"updated successfully"
+            )
         return res
 
     def start(self) -> "BugMasterBot":
