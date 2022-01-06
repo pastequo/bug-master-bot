@@ -10,11 +10,11 @@ WEBSERVER_PORT = int(os.getenv("WEBSERVER_PORT", 8080))
 WEBSERVER_HOST = os.getenv("WEBSERVER_HOST", default="0.0.0.0")
 
 if APP_TOKEN is None:
-    raise EnvironmentError("Missing app token environment variable")
+    raise EnvironmentError("Missing app token (APP_TOKEN) environment variable")
 if SIGNING_SECRET is None:
-    raise EnvironmentError("Missing signing secret environment variable")
+    raise EnvironmentError("Missing signing secret (SIGNING_SECRET) environment variable")
 if BOT_USER_TOKEN is None:
-    raise EnvironmentError("Missing bot user token environment variable")
+    raise EnvironmentError("Missing bot user token (BOT_USER_TOKEN) environment variable")
 
 logger.remove()
 logger.add(sys.stdout, colorize=True, format="<green>{time:HH:mm:ss}</green> | {level} | <level>{message}</level>")
