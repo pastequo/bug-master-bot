@@ -17,6 +17,14 @@ class ProwJobFailure:
         self._storage_link = urljoin(urljoin(self.BASE_STORAGE_URL, self._job_full_name), f"{self.job_id}/")
         self._config = config
 
+    @property
+    def url(self):
+        return self._raw_link
+
+    @property
+    def name(self):
+        return self._job_full_name
+
     def _get_job_data(self, link: str):
         job_full_name, job_id = re.findall(r"logs/(.*?)/(\d{15,22})", link).pop()
         job_full_name = job_full_name if job_full_name.endswith("/") else job_full_name + "/"

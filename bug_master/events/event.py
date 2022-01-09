@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from bug_master import models
 from bug_master.bug_master_bot import BugMasterBot
 from bug_master.consts import logger
+from bug_master.models import MessageEvent
 from bug_master.prow_job import ProwJobFailure
 
 
@@ -172,10 +173,16 @@ class MessageChannelEvent(Event):
                 logger.debug(f"Adding comment={text} and emoji={emoji}")
                 await self.add_reaction(emoji)
                 await self.add_comment(text)
+                self.add_record(pj)
             except IndexError:
                 return {"msg": "Failure", "Code": 401}
 
         return {"msg": "Success", "Code": 200}
+
+    def add_record(self, job_failure: ProwJobFailure):
+
+        MessageEvent.create(session=self._db, job_id=job_failure.job_id, job_name=job_failure.name, url=job_failure.url,
+                            channel_id=self._channel)
 
     async def add_reaction(self, emoji: str):
         if emoji:
