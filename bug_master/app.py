@@ -56,10 +56,6 @@ signature_verifier = signature.SignatureVerifier(consts.SIGNING_SECRET)
 async def root(request: Request):
     event = await events_handler.get_event(await request.json())
 
-    if isinstance(event, UrlVerificationEvent):
-        logger.info("Url verification event - success")
-        return {"msg": "Success", "Code": 200}
-
     if event is None or request.headers.get("x-slack-retry-num", False):
         logger.info(f"Skipping duplicate or unsupported event: {event}")
         return {"msg": "Success", "Code": 200}
