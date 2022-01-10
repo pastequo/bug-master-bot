@@ -1,3 +1,4 @@
+import re
 from abc import ABC, abstractmethod
 from typing import List
 
@@ -11,10 +12,9 @@ from bug_master.prow_job import ProwJobFailure
 
 
 class BaseEvent(ABC):
-    def __init__(self, body: dict, bot: BugMasterBot, db: Session) -> None:
+    def __init__(self, body: dict, bot: BugMasterBot) -> None:
         self.validate_event(body)
         self._bot = bot
-        self._db = db
         self._data: dict = body.get("event")
         self._event_id = body.get("event_id")
         self._event_time = body.get("event_time")
@@ -30,8 +30,8 @@ class BaseEvent(ABC):
 
 
 class Event(BaseEvent, ABC):
-    def __init__(self, body: dict, bot: BugMasterBot, db: Session) -> None:
-        super().__init__(body, bot, db)
+    def __init__(self, body: dict, bot: BugMasterBot) -> None:
+        super().__init__(body, bot)
         self._type = self._data.get("type", None)
         self._subtype = self._data.get("subtype", "")
         self._channel = self._data.get("channel")
@@ -46,8 +46,8 @@ class Event(BaseEvent, ABC):
 
 
 class ChannelJoinEvent(Event):
-    def __init__(self, body: dict, bot: BugMasterBot, db: Session) -> None:
-        super().__init__(body, bot, db)
+    def __init__(self, body: dict, bot: BugMasterBot) -> None:
+        super().__init__(body, bot)
         self._channel_id = self._data.get("channel")
         self._channel_name = self._data.get("name")
         self._is_private = False
@@ -67,7 +67,7 @@ class ChannelJoinEvent(Event):
     async def handle(self, **kwargs) -> dict:
         self._update_info(kwargs.get("channel_info", {}))
         kwargs = {"id": self.channel_id, "name": self.channel_name, "is_private": self._is_private}
-        if not models.Channel.create(self._db, **kwargs):
+        if not models.Channel.create(**kwargs):
             logger.warning(f"Failed to create or get channel {self.channel_id} - {self.channel_name} information")
             return {"msg": "Failure", "Code": 401}
 
@@ -75,8 +75,8 @@ class ChannelJoinEvent(Event):
 
 
 class FileShareEvent(Event):
-    def __init__(self, body: dict, bot: BugMasterBot, db: Session) -> None:
-        super().__init__(body, bot, db)
+    def __init__(self, body: dict, bot: BugMasterBot) -> None:
+        super().__init__(body, bot)
 
     @property
     def contain_files(self):
@@ -90,8 +90,8 @@ class FileShareEvent(Event):
 
 class UrlVerificationEvent(BaseEvent):
 
-    def __init__(self, body: dict, bot: BugMasterBot, db: Session) -> None:
-        super().__init__(body, bot, db)
+    def __init__(self, body: dict, bot: BugMasterBot) -> None:
+        super().__init__(body, bot)
         self.challenge = body.get("challenge", "")
 
     async def handle(self, **kwargs) -> dict:
@@ -105,8 +105,8 @@ class UrlVerificationEvent(BaseEvent):
 
 
 class MessageChannelEvent(Event):
-    def __init__(self, body: dict, bot: BugMasterBot, db: Session) -> None:
-        super().__init__(body, bot, db)
+    def __init__(self, body: dict, bot: BugMasterBot) -> None:
+        super().__init__(body, bot)
         self._msg_id = self._data.get("client_msg_id")
         self._user = self._data.get("user")
         self._channel_type = self._data.get("channel_type")
@@ -161,7 +161,7 @@ class MessageChannelEvent(Event):
             return {"msg": "Failure", "Code": 401}
 
         logger.info(f"Handling event {self}")
-        if not self._data.get("text", "").startswith(":red_jenkins_circle:"):
+        if not self._data.get("text", "").replace(" ", "").startswith(":red_jenkins_circle:"):
             logger.info("Ignoring messages that do not start with :red_jenkins_circle:")
             return {"msg": "Success", "Code": 200}
 
@@ -180,8 +180,11 @@ class MessageChannelEvent(Event):
         return {"msg": "Success", "Code": 200}
 
     def add_record(self, job_failure: ProwJobFailure):
-
-        MessageEvent.create(session=self._db, job_id=job_failure.job_id, job_name=job_failure.name, url=job_failure.url,
+        MessageEvent.create(job_id=job_failure.job_id,
+                            job_name=job_failure.name,
+                            user=self._user,
+                            thread_ts=self._ts,
+                            url=job_failure.url,
                             channel_id=self._channel)
 
     async def add_reaction(self, emoji: str):
@@ -202,6 +205,10 @@ class MessageChannelEvent(Event):
                     element_type = e.get("type")
                     if element_type == "link":
                         urls.append(e.get("url"))
+
+        # If url posted as plain text - try to get url using regex
+        if not urls:
+            urls = re.findall(r"(?:(?:https?)://)?[\w/\-?=%.]+\.[\w/\-&?=%.]+", self._text)
 
         logger.debug(f"Found {len(urls)} urls in event {self._data}")
         return urls

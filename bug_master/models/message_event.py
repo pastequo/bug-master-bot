@@ -12,6 +12,7 @@ class MessageEvent(BaseModule):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     job_id = Column(String, index=True, nullable=False)
     job_name = Column(String, index=True, nullable=False)
+    user = Column(String, index=True)
     url = Column(String, nullable=False)
     thread_ts = Column(Integer, index=True)
     time = Column(DateTime, default=datetime.datetime.now())

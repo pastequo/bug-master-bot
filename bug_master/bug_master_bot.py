@@ -11,6 +11,7 @@ from slack_sdk.web.async_client import AsyncWebClient
 from slack_sdk.web.async_slack_response import AsyncSlackResponse
 
 from .consts import logger
+from .models import Channel
 
 
 class BugMasterConfig:
@@ -75,6 +76,9 @@ class BugMasterBot:
         self._id = None
         self._name = None
 
+    def __str__(self):
+        return f"{self._name}:{self._id}"
+
     @property
     def id(self):
         return self._id
@@ -138,11 +142,23 @@ class BugMasterBot:
         if info.get("ok", False):
             self._id = info.get("bot_id")
             self._name = info.get("user")
+            logger.info(f"Bot authentication complete - {self}")
+        else:
+            logger.warning("Can't auth bot web_client")
 
     async def try_load_configurations_from_history(self, channel: str) -> bool:
         res = await self._sm_client.web_client.files_list(channel=channel, types=BugMasterConfig.SUPPORTED_FILETYPE)
         return await self.refresh_configuration(channel, res.data.get("files", []), from_history=True)
 
-    async def get_channel_info(self, channel: str):
-        res = await self._sm_client.web_client.conversations_info(channel=channel)
-        return res.get("channel", {})
+    async def get_channel_info(self, event: "Event"):
+        res = await self._sm_client.web_client.conversations_info(channel=event.channel)
+        channel_info = res.get("channel", None)
+
+        if not channel_info:
+            return {channel_info}
+
+        Channel.create(id=channel_info.get("id"),
+                       name=channel_info.get("name"),
+                       is_private=channel_info.get("is_private"))
+
+        return channel_info
