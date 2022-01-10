@@ -1,5 +1,5 @@
 import re
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 from urllib.parse import urljoin
 
 import aiohttp
@@ -56,15 +56,27 @@ class ProwJobFailure:
                 return result.get("emoji"), result.get("text")
         return None, None
 
-    async def get_failure_result(self):
+    async def get_failure_result(self) -> Tuple[List[str], List[str]]:
+        emojis = []
+        texts = []
         for result in self._config:
             file_path = result.get("file_path", "")
             if "{job_name}" in file_path:
                 file_path = file_path.format(job_name=self._job_name)
             if file_path.endswith("*"):
-                return await self.glob(file_path, result)
+                emoji, text = await self.glob(file_path, result)
+                if emoji:
+                    emojis.append(emoji)
+                if text:
+                    texts.append(text)
+                continue
             content = await self.get_content(file_path)
             contains = result.get("contains")
             if contains and contains in content:
-                return result.get("emoji"), result.get("text")
-        return None, None
+                emoji, text = result.get("emoji"), result.get("text")
+                if emoji:
+                    emojis.append(emoji)
+                if text:
+                    texts.append(text)
+                continue
+        return emojis, texts

@@ -169,13 +169,13 @@ class MessageChannelEvent(Event):
         for link in links:
             try:
                 pj = ProwJobFailure(link, self._bot.get_configuration(self._channel))
-                emoji, text = await pj.get_failure_result()
-                logger.debug(f"Adding comment={text} and emoji={emoji}")
-                await self.add_reaction(emoji)
-                await self.add_comment(text)
+                emojis, texts = await pj.get_failure_result()
+                logger.debug(f"Adding comments={texts} and emojis={emojis}")
+                await self.add_reactions(emojis)
+                await self.add_comments(texts)
                 self.add_record(pj)
             except IndexError:
-                return {"msg": "Failure", "Code": 401}
+                continue
 
         return {"msg": "Success", "Code": 200}
 
@@ -187,13 +187,13 @@ class MessageChannelEvent(Event):
                             url=job_failure.url,
                             channel_id=self._channel)
 
-    async def add_reaction(self, emoji: str):
-        if emoji:
+    async def add_reactions(self, emojis: List[str]):
+        for emoji in emojis:
             logger.debug(f"Adding emoji in channel {self._channel} for ts {self._ts}")
             await self._bot.add_reaction(self._channel, emoji, self._ts)
 
-    async def add_comment(self, comment: str):
-        if comment:
+    async def add_comments(self, comments: List[str]):
+        for comment in comments:
             logger.debug(f"Adding comment in channel {self._channel} for ts {self._ts}")
             await self._bot.add_comment(self._channel, comment, self._ts)
 
@@ -208,7 +208,8 @@ class MessageChannelEvent(Event):
 
         # If url posted as plain text - try to get url using regex
         if not urls:
-            urls = re.findall(r"(?:(?:https?)://)?[\w/\-?=%.]+\.[\w/\-&?=%.]+", self._text)
+            urls = [url for url in re.findall(r"https://?[\w/\-?=%.]+\.[\w/\-&?=%.]+", self._text)
+                    if "prow.ci.openshift.org" in url]
 
         logger.debug(f"Found {len(urls)} urls in event {self._data}")
         return urls
