@@ -1,4 +1,5 @@
 import re
+from typing import Tuple, Optional
 from urllib.parse import urljoin
 
 import aiohttp
@@ -28,7 +29,7 @@ class ProwJobFailure:
     def _get_job_data(self, link: str):
         job_full_name, job_id = re.findall(r"logs/(.*?)/(\d{15,22})", link).pop()
         job_full_name = job_full_name if job_full_name.endswith("/") else job_full_name + "/"
-        job_name = job_full_name.replace(self.JOB_PREFIX, "").replace("/", "")
+        job_name = re.findall(r"(e2e-.*?)[\s|/]", job_full_name).pop()
         return job_full_name, job_name, job_id
 
     async def get_content(self, file_path: str, storage_link=None):
@@ -41,7 +42,7 @@ class ProwJobFailure:
 
         return None
 
-    async def glob(self, dir_path: str, result: dict):
+    async def glob(self, dir_path: str, result: dict) -> Tuple[Optional[str], Optional[str]]:
         if dir_path.endswith("*"):
             dir_path = dir_path[:-1]
         dir_content = await self.get_content(
@@ -53,6 +54,7 @@ class ProwJobFailure:
             contains = result.get("contains")
             if contains and contains in content:
                 return result.get("emoji"), result.get("text")
+        return None, None
 
     async def get_failure_result(self):
         for result in self._config:

@@ -72,5 +72,15 @@ app.include_router(router)
 
 def start_web_server(host: str, port: int):
     bot.start()
+    # return test_post_message()
     config = uvicorn.Config(app=app, loop="asyncio", host=host, port=port, debug=True)
     uvicorn.Server(config).run()
+
+
+def test_post_message():
+    channel = "C02T0M7L0BW"
+    text = ":red_jenkins_circle: Job *periodic-ci-openshift-assisted-test-infra-master-e2e-metal-assisted-networking-periodic* ended with *failure* . <https://prow.ci.openshift.org/view/gs/origin-ci-test/logs/periodic-ci-openshift-assisted-test-infra-master-e2e-metal-assisted-networking-periodic/1480026800292630528|View logs>"
+
+    bot._loop.run_until_complete(bot.add_comment(channel=channel, comment=text))
+
+    return {"msg": "Success", "Code": 200}
