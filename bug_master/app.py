@@ -5,13 +5,11 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.routing import APIRoute, APIRouter
 from slack_sdk import signature
-from sqlalchemy.orm import Session
 
-from . import consts, database
+from . import consts
 from .bug_master_bot import BugMasterBot
 from .consts import logger
-from .events import EventHandler
-from .events import UrlVerificationEvent
+from .events import EventHandler, UrlVerificationEvent
 
 
 class ContextIncludedRoute(APIRoute):
@@ -63,7 +61,7 @@ async def root(request: Request):
         logger.info("Url verification event - success")
         return {"status": 200, "challenge": event.challenge}
 
-    channel_info = await bot.get_channel_info(event)
+    channel_info = await event.get_channel_info()
     return await event.handle(channel_info=channel_info)
 
 
@@ -72,15 +70,5 @@ app.include_router(router)
 
 def start_web_server(host: str, port: int):
     bot.start()
-    # return test_post_message()
     config = uvicorn.Config(app=app, loop="asyncio", host=host, port=port, debug=True)
     uvicorn.Server(config).run()
-
-
-def test_post_message():
-    channel = "C02T0M7L0BW"
-    text = ":red_jenkins_circle: Job *periodic-ci-openshift-assisted-test-infra-master-e2e-metal-assisted-networking-periodic* ended with *failure* . <https://prow.ci.openshift.org/view/gs/origin-ci-test/logs/periodic-ci-openshift-assisted-test-infra-master-e2e-metal-assisted-networking-periodic/1480026800292630528|View logs>"
-
-    bot._loop.run_until_complete(bot.add_comment(channel=channel, comment=text))
-
-    return {"msg": "Success", "Code": 200}

@@ -2,11 +2,9 @@ import re
 from abc import ABC, abstractmethod
 from typing import List
 
-from sqlalchemy.orm import Session
-
 from bug_master import models
 from bug_master.bug_master_bot import BugMasterBot
-from bug_master.consts import logger
+from bug_master.consts import CONFIGURATION_FILE_NAME, logger
 from bug_master.models import MessageEvent
 from bug_master.prow_job import ProwJobFailure
 
@@ -43,6 +41,9 @@ class Event(BaseEvent, ABC):
     @property
     def type(self):
         return self._type
+
+    async def get_channel_info(self):
+        return await self._bot.get_channel_info(self._channel)
 
 
 class ChannelJoinEvent(Event):
@@ -89,7 +90,6 @@ class FileShareEvent(Event):
 
 
 class UrlVerificationEvent(BaseEvent):
-
     def __init__(self, body: dict, bot: BugMasterBot) -> None:
         super().__init__(body, bot)
         self.challenge = body.get("challenge", "")
@@ -180,12 +180,14 @@ class MessageChannelEvent(Event):
         return {"msg": "Success", "Code": 200}
 
     def add_record(self, job_failure: ProwJobFailure):
-        MessageEvent.create(job_id=job_failure.job_id,
-                            job_name=job_failure.name,
-                            user=self._user,
-                            thread_ts=self._ts,
-                            url=job_failure.url,
-                            channel_id=self._channel)
+        MessageEvent.create(
+            job_id=job_failure.job_id,
+            job_name=job_failure.name,
+            user=self._user,
+            thread_ts=self._ts,
+            url=job_failure.url,
+            channel_id=self._channel,
+        )
 
     async def add_reactions(self, emojis: List[str]):
         for emoji in emojis:
@@ -208,8 +210,42 @@ class MessageChannelEvent(Event):
 
         # If url posted as plain text - try to get url using regex
         if not urls:
-            urls = [url for url in re.findall(r"https://?[\w/\-?=%.]+\.[\w/\-&?=%.]+", self._text)
-                    if "prow.ci.openshift.org" in url]
+            urls = [
+                url
+                for url in re.findall(r"https://?[\w/\-?=%.]+\.[\w/\-&?=%.]+", self._text)
+                if "prow.ci.openshift.org" in url
+            ]
 
         logger.debug(f"Found {len(urls)} urls in event {self._data}")
         return urls
+
+
+class FileChangeEvent(Event):
+    def __init__(self, body: dict, bot: BugMasterBot) -> None:
+        super().__init__(body, bot)
+        self._file_id = self._data.get("file_id")
+        self._file_info = {}
+
+    async def get_file_info(self):
+        if self._file_info:
+            return self._file_info
+        self._file_info = await self._bot.get_file_info(self._file_id)
+        return self._file_info
+
+    async def _update_channel_info(self):
+        file_info = await self.get_file_info()
+        channels = file_info.get("channels")
+        self._channel = channels[0]
+
+    async def get_channel_info(self):
+        try:
+            await self._update_channel_info()
+            return await super().get_channel_info()
+        except IndexError as e:
+            logger.warning(f"Error while attempt to get channel info in {self._type}:{self._subtype}, {e}")
+
+    async def handle(self, **kwargs) -> dict:
+        file_info = await self.get_file_info()
+        if file_info.get("title", "") == CONFIGURATION_FILE_NAME:
+            await self._bot.refresh_configuration(self._channel, [file_info])
+        return {"msg": "Success", "Code": 200}

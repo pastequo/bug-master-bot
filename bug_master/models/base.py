@@ -2,7 +2,6 @@ import sqlite3
 from typing import Union
 
 from sqlalchemy.exc import PendingRollbackError
-from sqlalchemy.orm import Session
 
 from bug_master.database import Base
 
