@@ -1,10 +1,12 @@
 import json
+import logging
 from typing import Callable
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.routing import APIRoute, APIRouter
 from slack_sdk import signature
+from uvicorn_loguru_integration import run_uvicorn_loguru
 
 from . import consts
 from .bug_master_bot import BugMasterBot
@@ -70,5 +72,10 @@ app.include_router(router)
 
 def start_web_server(host: str, port: int):
     bot.start()
-    config = uvicorn.Config(app=app, loop="asyncio", host=host, port=port, debug=True)
-    uvicorn.Server(config).run()
+    config = uvicorn.Config(app=app,
+                            loop="asyncio",
+                            host=host,
+                            port=port,
+                            log_level=logging.getLevelName(consts.LOG_LEVEL).lower()
+                            )
+    run_uvicorn_loguru(config)

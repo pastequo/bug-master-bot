@@ -7,3 +7,4 @@ aiohttp==3.8.0
 PyYAML==6.0
 slack_sdk==3.11.2
 SQLAlchemy==1.4.27
+uvicorn-loguru-integration==0.3.0
