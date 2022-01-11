@@ -66,6 +66,8 @@ class ChannelJoinEvent(Event):
         self._is_private = info.get("is_private", self._is_private)
 
     async def handle(self, **kwargs) -> dict:
+        logger.info(f"Handling {self.type}, {self._subtype} event")
+
         self._update_info(kwargs.get("channel_info", {}))
         kwargs = {"id": self.channel_id, "name": self.channel_name, "is_private": self._is_private}
         if not models.Channel.create(**kwargs):
@@ -84,6 +86,8 @@ class FileShareEvent(Event):
         return self._data and self._data.get("files")
 
     async def handle(self, **kwargs) -> dict:
+        logger.info(f"Handling {self.type}, {self._subtype} event")
+
         if self.contain_files:
             await self._bot.refresh_configuration(self._channel, self._data.get("files", []))
         return {"msg": "Success", "Code": 200}
@@ -139,6 +143,7 @@ class MessageChannelEvent(Event):
         return self._data and self._data.get("files")
 
     async def handle(self, **kwargs) -> dict:
+        logger.info(f"Handling {self.type}, {self._subtype} event")
         channel_name = kwargs.get("channel_info", {}).get("name", self.channel)
 
         # ignore messages sent by bots or retries
@@ -245,6 +250,7 @@ class FileChangeEvent(Event):
             logger.warning(f"Error while attempt to get channel info in {self._type}:{self._subtype}, {e}")
 
     async def handle(self, **kwargs) -> dict:
+        logger.info(f"Handling {self.type}, {self._subtype} event")
         file_info = await self.get_file_info()
         if file_info.get("title", "") == CONFIGURATION_FILE_NAME:
             await self._bot.refresh_configuration(self._channel, [file_info])

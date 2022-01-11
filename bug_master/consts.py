@@ -21,7 +21,11 @@ if BOT_USER_TOKEN is None:
     raise EnvironmentError("Missing bot user token (BOT_USER_TOKEN) environment variable")
 
 logger.remove()
-logger.add(sys.stdout, colorize=True, format="<green>{time:HH:mm:ss}</green> | {level} | <level>{message}</level>",
-           level=LOG_LEVEL)
+logger.add(
+    sys.stdout,
+    colorize=True,
+    format="<green>{time:HH:mm:ss}</green> | {level} | <level>{message}</level>",
+    level=LOG_LEVEL,
+)
 
 logger.info(f"Initialized logger and set level to be {logging.getLevelName(LOG_LEVEL)}")

@@ -46,9 +46,7 @@ class ContextIncludedRoute(APIRoute):
 app = FastAPI()
 bot = BugMasterBot(consts.BOT_USER_TOKEN, consts.APP_TOKEN, consts.SIGNING_SECRET)
 events_handler = EventHandler(bot)
-
 router = APIRouter(route_class=ContextIncludedRoute)
-
 signature_verifier = signature.SignatureVerifier(consts.SIGNING_SECRET)
 
 
@@ -72,10 +70,7 @@ app.include_router(router)
 
 def start_web_server(host: str, port: int):
     bot.start()
-    config = uvicorn.Config(app=app,
-                            loop="asyncio",
-                            host=host,
-                            port=port,
-                            log_level=logging.getLevelName(consts.LOG_LEVEL).lower()
-                            )
+    config = uvicorn.Config(
+        app=app, loop="asyncio", host=host, port=port, log_level=logging.getLevelName(consts.LOG_LEVEL).lower()
+    )
     run_uvicorn_loguru(config)
