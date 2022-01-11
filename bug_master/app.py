@@ -5,13 +5,11 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.routing import APIRoute, APIRouter
 from slack_sdk import signature
-from sqlalchemy.orm import Session
 
-from . import consts, database
+from . import consts
 from .bug_master_bot import BugMasterBot
 from .consts import logger
-from .events import EventHandler
-from .events import UrlVerificationEvent
+from .events import EventHandler, UrlVerificationEvent
 
 
 class ContextIncludedRoute(APIRoute):
@@ -24,6 +22,7 @@ class ContextIncludedRoute(APIRoute):
             headers = dict(request.headers)
             is_request_valid = signature_verifier.is_valid_request(body, headers)
 
+            logger.debug(f"Got new request, {request.method} {request.url} {headers} {body}")
             if not is_request_valid:
                 logger.warning(f"Got invalid request, {request.method} {headers} {request.url} {body}")
                 return Response(
@@ -44,8 +43,7 @@ class ContextIncludedRoute(APIRoute):
 
 app = FastAPI()
 bot = BugMasterBot(consts.BOT_USER_TOKEN, consts.APP_TOKEN, consts.SIGNING_SECRET)
-db: Session = database.get_session()
-events_handler = EventHandler(bot, db)
+events_handler = EventHandler(bot)
 
 router = APIRouter(route_class=ContextIncludedRoute)
 
@@ -55,11 +53,6 @@ signature_verifier = signature.SignatureVerifier(consts.SIGNING_SECRET)
 @router.post("/slack")
 async def root(request: Request):
     event = await events_handler.get_event(await request.json())
-
-    if isinstance(event, UrlVerificationEvent):
-        logger.info("Url verification event - success")
-        return {"msg": "Success", "Code": 200}
-
     if event is None or request.headers.get("x-slack-retry-num", False):
         logger.info(f"Skipping duplicate or unsupported event: {event}")
         return {"msg": "Success", "Code": 200}
@@ -68,7 +61,7 @@ async def root(request: Request):
         logger.info("Url verification event - success")
         return {"status": 200, "challenge": event.challenge}
 
-    channel_info = await bot.get_channel_info(event.channel)
+    channel_info = await event.get_channel_info()
     return await event.handle(channel_info=channel_info)
 
 

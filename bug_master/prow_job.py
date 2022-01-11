@@ -1,4 +1,5 @@
 import re
+from typing import List, Optional, Tuple
 from urllib.parse import urljoin
 
 import aiohttp
@@ -17,10 +18,18 @@ class ProwJobFailure:
         self._storage_link = urljoin(urljoin(self.BASE_STORAGE_URL, self._job_full_name), f"{self.job_id}/")
         self._config = config
 
+    @property
+    def url(self):
+        return self._raw_link
+
+    @property
+    def name(self):
+        return self._job_full_name
+
     def _get_job_data(self, link: str):
         job_full_name, job_id = re.findall(r"logs/(.*?)/(\d{15,22})", link).pop()
         job_full_name = job_full_name if job_full_name.endswith("/") else job_full_name + "/"
-        job_name = job_full_name.replace(self.JOB_PREFIX, "").replace("/", "")
+        job_name = re.findall(r"(e2e-.*?)[\s|/]", job_full_name).pop()
         return job_full_name, job_name, job_id
 
     async def get_content(self, file_path: str, storage_link=None):
@@ -33,7 +42,7 @@ class ProwJobFailure:
 
         return None
 
-    async def glob(self, dir_path: str, result: dict):
+    async def glob(self, dir_path: str, result: dict) -> Tuple[Optional[str], Optional[str]]:
         if dir_path.endswith("*"):
             dir_path = dir_path[:-1]
         dir_content = await self.get_content(
@@ -45,16 +54,29 @@ class ProwJobFailure:
             contains = result.get("contains")
             if contains and contains in content:
                 return result.get("emoji"), result.get("text")
+        return None, None
 
-    async def get_failure_result(self):
+    async def get_failure_result(self) -> Tuple[List[str], List[str]]:
+        emojis = []
+        texts = []
         for result in self._config:
             file_path = result.get("file_path", "")
             if "{job_name}" in file_path:
                 file_path = file_path.format(job_name=self._job_name)
             if file_path.endswith("*"):
-                return await self.glob(file_path, result)
+                emoji, text = await self.glob(file_path, result)
+                if emoji:
+                    emojis.append(emoji)
+                if text:
+                    texts.append(text)
+                continue
             content = await self.get_content(file_path)
             contains = result.get("contains")
             if contains and contains in content:
-                return result.get("emoji"), result.get("text")
-        return None, None
+                emoji, text = result.get("emoji"), result.get("text")
+                if emoji:
+                    emojis.append(emoji)
+                if text:
+                    texts.append(text)
+                continue
+        return emojis, texts

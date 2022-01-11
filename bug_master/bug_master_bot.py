@@ -1,7 +1,7 @@
 import asyncio
 import json
 from asyncio import AbstractEventLoop
-from typing import Dict, Union
+from typing import Dict, List, Union
 
 import aiohttp
 import yaml
@@ -11,6 +11,7 @@ from slack_sdk.web.async_client import AsyncWebClient
 from slack_sdk.web.async_slack_response import AsyncSlackResponse
 
 from .consts import logger
+from .models import Channel
 
 
 class BugMasterConfig:
@@ -31,6 +32,9 @@ class BugMasterConfig:
 
     def __iter__(self):
         return self._content.__iter__()
+
+    def __len__(self):
+        return len(self._content) if self._content else 0
 
     @property
     def name(self):
@@ -75,6 +79,9 @@ class BugMasterBot:
         self._id = None
         self._name = None
 
+    def __str__(self):
+        return f"{self._name}:{self._id}"
+
     @property
     def id(self):
         return self._id
@@ -100,7 +107,7 @@ class BugMasterBot:
             return BugMasterConfig(files.pop() if files else [])
         return self._config[channel]
 
-    async def refresh_configuration(self, channel: str, files: str, from_history=False) -> bool:
+    async def refresh_configuration(self, channel: str, files: List[dict], from_history=False) -> bool:
         res = False
         files = [
             f
@@ -109,13 +116,14 @@ class BugMasterBot:
         ]
         if not files:
             return res
-
+        logger.info("Attempting to refresh configuration file")
         bmc = self._get_configuration(channel, files)
 
         try:
             await bmc.load(self._bot_token)
             self._config[channel] = bmc
             res = True
+            logger.info(f"Configuration file loaded successfully with {len(self._config[channel])} entries")
         except AssertionError:
             if not from_history:
                 await self.add_comment(channel, "BugMasterBot configuration file is invalid")
@@ -138,11 +146,27 @@ class BugMasterBot:
         if info.get("ok", False):
             self._id = info.get("bot_id")
             self._name = info.get("user")
+            logger.info(f"Bot authentication complete - {self}")
+        else:
+            logger.warning("Can't auth bot web_client")
 
     async def try_load_configurations_from_history(self, channel: str) -> bool:
         res = await self._sm_client.web_client.files_list(channel=channel, types=BugMasterConfig.SUPPORTED_FILETYPE)
         return await self.refresh_configuration(channel, res.data.get("files", []), from_history=True)
 
-    async def get_channel_info(self, channel: str):
-        res = await self._sm_client.web_client.conversations_info(channel=channel)
-        return res.get("channel", {})
+    async def get_file_info(self, file_id: str) -> dict:
+        res = await self._sm_client.web_client.files_info(file=file_id)
+        return res.data.get("file")
+
+    async def get_channel_info(self, channel_id: str) -> dict:
+        res = await self._sm_client.web_client.conversations_info(channel=channel_id)
+        channel_info = res.get("channel", None)
+
+        if not channel_info:
+            return {}
+
+        Channel.create(
+            id=channel_info.get("id"), name=channel_info.get("name"), is_private=channel_info.get("is_private")
+        )
+
+        return channel_info
