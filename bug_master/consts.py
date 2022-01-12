@@ -7,6 +7,7 @@ from loguru import logger
 APP_TOKEN = os.getenv("APP_TOKEN")
 SIGNING_SECRET = os.getenv("SIGNING_SECRET")
 BOT_USER_TOKEN = os.getenv("BOT_USER_TOKEN")
+SSL_KEYFILE_PASSWORD = os.getenv("SSL_KEYFILE_PASSWORD")
 WEBSERVER_PORT = int(os.getenv("WEBSERVER_PORT", 8080))
 WEBSERVER_HOST = os.getenv("WEBSERVER_HOST", default="0.0.0.0")
 SQLALCHEMY_DATABASE_PATH = os.getenv("SQLALCHEMY_DATABASE_PATH", default="./bot.db")
