@@ -38,4 +38,4 @@ class GetChannelCommand(Command):
                 f' configuration file ("bug_master_configuration.yaml") to the channel'
             )
 
-        return self.get_response(f"Current channel configuration - <{channel_config.url} | link>")
+        return self.get_response(f"Current channel configuration - <{channel_config.permalink} | link>")

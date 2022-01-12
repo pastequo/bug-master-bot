@@ -29,6 +29,7 @@ class BugMasterConfig:
         self._title = file_info["title"]
         self._filetype = filetype
         self._url = file_info["url_private"]
+        self._permalink = file_info["permalink"]
         self._content: Union[dict, None] = None
 
     def __len__(self):
@@ -39,8 +40,8 @@ class BugMasterConfig:
         return self._title
 
     @property
-    def url(self):
-        return self._url
+    def permalink(self):
+        return self._permalink
 
     def items(self):
         return self._content.__iter__()
