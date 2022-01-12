@@ -11,8 +11,7 @@ from uvicorn_loguru_integration import run_uvicorn_loguru
 
 from . import consts
 from .bug_master_bot import BugMasterBot
-from .commands import Command, CommandHandler
-from .commands.command_handler import NotSupportedCommandError
+from .commands import Command, CommandHandler, NotSupportedCommandError
 from .consts import logger
 from .events import EventHandler, UrlVerificationEvent
 
