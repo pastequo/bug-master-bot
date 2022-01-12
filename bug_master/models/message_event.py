@@ -20,3 +20,6 @@ class MessageEvent(BaseModule):
 
     channel_id = Column(String, ForeignKey("channels.id"), nullable=False)
     channel = relationship("Channel", foreign_keys=[channel_id])
+
+    def __str__(self):
+        return f"{self.id}, {self.job_id}, {self.user}, {self.channel}, {self.url}"
