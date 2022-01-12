@@ -18,6 +18,7 @@ class BaseModule(Base):
         with cls.get_session() as session:
             _id = kwargs.get("id", "")
             try:
+                logger.debug(f"Querying {cls.__name__} with id {_id}")
                 instance = session.query(cls).filter_by(id=_id).first()
             except PendingRollbackError:
                 session.rollback()
@@ -35,5 +36,7 @@ class BaseModule(Base):
                 session.add(instance)
                 session.commit()
                 logger.info(f"Added new entry to `{cls.__tablename__}` table, with id {instance.id}")
+            else:
+                logger.debug(f"Found {cls.__name__.lower()} instance - {instance}")
 
         return instance

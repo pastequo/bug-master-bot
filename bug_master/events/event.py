@@ -173,8 +173,8 @@ class MessageChannelEvent(Event):
         links = self._get_links()
         for link in links:
             try:
-                pj = ProwJobFailure(link, self._bot.get_configuration(self._channel))
-                emojis, texts = await pj.get_failure_result()
+                pj = ProwJobFailure(link)
+                emojis, texts = await pj.get_failure_actions(self._bot.get_configuration(self._channel))
                 logger.debug(f"Adding comments={texts} and emojis={emojis}")
                 await self.add_reactions(emojis)
                 await self.add_comments(texts)
@@ -196,7 +196,7 @@ class MessageChannelEvent(Event):
 
     async def add_reactions(self, emojis: List[str]):
         for emoji in emojis:
-            logger.debug(f"Adding emoji in channel {self._channel} for ts {self._ts}")
+            logger.debug(f"Adding reactions to channel {self._channel} for ts {self._ts}")
             await self._bot.add_reaction(self._channel, emoji, self._ts)
 
     async def add_comments(self, comments: List[str]):

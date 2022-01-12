@@ -6,6 +6,7 @@ from typing import Dict, List, Union
 import aiohttp
 import yaml
 from slack_sdk import signature
+from slack_sdk.errors import SlackApiError
 from slack_sdk.socket_mode.aiohttp import SocketModeClient
 from slack_sdk.web.async_client import AsyncWebClient
 from slack_sdk.web.async_slack_response import AsyncSlackResponse
@@ -28,10 +29,7 @@ class BugMasterConfig:
         self._title = file_info["title"]
         self._filetype = filetype
         self._url = file_info["url_private"]
-        self._content = None
-
-    def __iter__(self):
-        return self._content.__iter__()
+        self._content: Union[dict, None] = None
 
     def __len__(self):
         return len(self._content) if self._content else 0
@@ -39,6 +37,9 @@ class BugMasterConfig:
     @property
     def name(self):
         return self._title
+
+    def items(self):
+        return self._content.__iter__()
 
     async def load(self, bot_token: str) -> "BugMasterConfig":
         content = {}
@@ -136,8 +137,14 @@ class BugMasterBot:
         return res
 
     def start(self) -> "BugMasterBot":
-        logger.info("Stating bug_master bot")
-        self._loop.run_until_complete(self._sm_client.connect())
+        logger.info("Starting bug_master bot - attempting connect to Slack’s APIs using WebSockets ...")
+        try:
+            self._loop.run_until_complete(self._sm_client.connect())
+            logger.info("Connected to bot Slack’s APIs")
+        except SlackApiError as e:
+            logger.error(f"Connection to Slack’s APIs failed, {e}")
+            raise
+
         self._update_bot_info()
         return self
 
