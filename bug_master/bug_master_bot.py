@@ -38,6 +38,10 @@ class BugMasterConfig:
     def name(self):
         return self._title
 
+    @property
+    def url(self):
+        return self._url
+
     def items(self):
         return self._content.__iter__()
 
@@ -159,7 +163,9 @@ class BugMasterBot:
 
     async def try_load_configurations_from_history(self, channel: str) -> bool:
         res = await self._sm_client.web_client.files_list(channel=channel, types=BugMasterConfig.SUPPORTED_FILETYPE)
-        return await self.refresh_configuration(channel, res.data.get("files", []), from_history=True)
+        conf = await self.refresh_configuration(channel, res.data.get("files", []), from_history=True)
+        logger.info(f"Configurations loaded successfully from channel history for channel {channel}")
+        return conf
 
     async def get_file_info(self, file_id: str) -> dict:
         res = await self._sm_client.web_client.files_info(file=file_id)

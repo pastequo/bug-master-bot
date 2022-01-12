@@ -154,8 +154,7 @@ class MessageChannelEvent(Event):
             return {"msg": "Success", "Code": 200}
 
         if not self._bot.has_channel_configurations(self.channel):
-            if await self._bot.try_load_configurations_from_history(self.channel):
-                logger.info(f"Configurations loaded successfully from channel history for channel {channel_name}")
+            await self._bot.try_load_configurations_from_history(self.channel)
 
         if not self._bot.has_channel_configurations(self.channel):
             await self._bot.add_comment(

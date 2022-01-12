@@ -1,6 +1,7 @@
 import json
 import logging
 from typing import Callable
+from urllib.parse import parse_qs
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
@@ -10,6 +11,8 @@ from uvicorn_loguru_integration import run_uvicorn_loguru
 
 from . import consts
 from .bug_master_bot import BugMasterBot
+from .commands import Command, CommandHandler
+from .commands.command_handler import NotSupportedCommandError
 from .consts import logger
 from .events import EventHandler, UrlVerificationEvent
 
@@ -34,6 +37,9 @@ class ContextIncludedRoute(APIRoute):
                 )
 
             # logger.debug(f"Got a valid request, {request.method} {request.url} {body}")
+            if headers.get("content-type") == "application/x-www-form-urlencoded":
+                return response
+
             return Response(
                 content=json.dumps({"challenge": json.loads(body).get("challenge", "")}),
                 status_code=response.status_code,
@@ -46,12 +52,24 @@ class ContextIncludedRoute(APIRoute):
 app = FastAPI()
 bot = BugMasterBot(consts.BOT_USER_TOKEN, consts.APP_TOKEN, consts.SIGNING_SECRET)
 events_handler = EventHandler(bot)
+commands_handler = CommandHandler(bot)
 router = APIRouter(route_class=ContextIncludedRoute)
 signature_verifier = signature.SignatureVerifier(consts.SIGNING_SECRET)
 
 
-@router.post("/slack")
-async def root(request: Request):
+@router.post("/slack/config")
+async def config(request: Request):
+    body = {k.decode(): v.pop().decode() for k, v in parse_qs(await request.body()).items()}
+    try:
+        command = await commands_handler.get_command(body)
+    except NotSupportedCommandError as e:
+        return Command.get_response(f"{e}")
+
+    return await command.handle()
+
+
+@router.post("/slack/events")
+async def events(request: Request):
     event = await events_handler.get_event(await request.json())
     if event is None or request.headers.get("x-slack-retry-num", False):
         logger.info(f"Skipping duplicate or unsupported event: {event}")
@@ -70,7 +88,7 @@ app.include_router(router)
 
 def start_web_server(host: str, port: int):
     bot.start()
-    config = uvicorn.Config(
+    uvicorn_config = uvicorn.Config(
         app=app, loop="asyncio", host=host, port=port, log_level=logging.getLevelName(consts.LOG_LEVEL).lower()
     )
-    run_uvicorn_loguru(config)
+    run_uvicorn_loguru(uvicorn_config)
