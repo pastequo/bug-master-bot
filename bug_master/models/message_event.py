@@ -1,6 +1,8 @@
 import datetime
+from typing import List
 
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import relationship
 
 from .base import BaseModule
@@ -23,3 +25,11 @@ class MessageEvent(BaseModule):
 
     def __str__(self):
         return f"{self.id}, {self.job_id}, {self.user}, {self.channel}, {self.url}"
+
+    @classmethod
+    def select(cls, channel: str, since: datetime.date) -> List["MessageEvent"]:
+        try:
+            with cls.get_session() as session:
+                return session.query(cls).order_by(cls.time).filter(cls.channel_id == channel, cls.time >= since).all()
+        except NoResultFound:
+            return []
