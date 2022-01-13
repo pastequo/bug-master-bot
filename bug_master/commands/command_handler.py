@@ -2,19 +2,8 @@ from typing import Type, Union
 
 from ..bug_master_bot import BugMasterBot
 from ..consts import logger
-from .command import Command, GetChannelCommand
-
-
-class NotSupportedCommandError(Exception):
-    pass
-
-
-class SupportedCommands:
-    GET_CHANNEL_CONFIGURATIONS = "config"
-
-    @classmethod
-    def get_commands_map(cls):
-        return {cls.GET_CHANNEL_CONFIGURATIONS: GetChannelCommand}
+from . import NotSupportedCommandError
+from .command import Command, SupportedCommands, HelpCommand
 
 
 class CommandHandler:
@@ -23,9 +12,10 @@ class CommandHandler:
 
     @classmethod
     def validate_command_body(cls, body: dict) -> str:
-        command = body.get("text")
+        command, _ = Command.get_command(body.get("text"))
         if not command or command not in SupportedCommands.get_commands_map():
-            raise NotSupportedCommandError(f"Command of type `{command}` is not supported")
+            raise NotSupportedCommandError(f"Command `{command}` is not supported. Available commands:\n"
+                                           f"```{HelpCommand.get_commands_info()}```")
         return command
 
     async def get_command(self, body: dict) -> Union[Command, None]:

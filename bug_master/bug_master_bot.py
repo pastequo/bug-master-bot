@@ -179,8 +179,12 @@ class BugMasterBot:
         if not channel_info:
             return {}
 
-        Channel.create(
-            id=channel_info.get("id"), name=channel_info.get("name"), is_private=channel_info.get("is_private")
-        )
+        channel = Channel.select(channel_id)
+        if not channel:
+            Channel.create(
+                id=channel_info.get("id"), name=channel_info.get("name"), is_private=channel_info.get("is_private")
+            )
+        else:
+            channel.update_last_seen()
 
         return channel_info

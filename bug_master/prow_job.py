@@ -25,7 +25,7 @@ class ProwJobFailure:
 
     @property
     def name(self):
-        return self._job_full_name
+        return self._job_name
 
     @classmethod
     def _get_job_data(cls, link: str):
