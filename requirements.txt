@@ -1,8 +1,8 @@
 uvicorn==0.15.0
-fastapi==0.70.0
+fastapi==0.71.0
 loguru==0.5.3
 slackers==1.0.0
-starlette==0.16.0
+starlette==0.17.1
 aiohttp==3.8.0
 PyYAML==6.0
 slack_sdk==3.11.2

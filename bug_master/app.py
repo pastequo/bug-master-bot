@@ -7,6 +7,7 @@ import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.routing import APIRoute, APIRouter
 from slack_sdk import signature
+from starlette.responses import JSONResponse, StreamingResponse
 from uvicorn_loguru_integration import run_uvicorn_loguru
 
 from . import consts
@@ -54,6 +55,14 @@ events_handler = EventHandler(bot)
 commands_handler = CommandHandler(bot)
 router = APIRouter(route_class=ContextIncludedRoute)
 signature_verifier = signature.SignatureVerifier(consts.SIGNING_SECRET)
+
+
+@app.middleware('http')
+async def headers_middleware(request: Request, call_next: Callable):
+    if not hasattr(request, "headers"):
+        return JSONResponse(content={"message": "Invalid request"}, status_code=401)
+    response: StreamingResponse = await call_next(request)
+    return response
 
 
 @router.post("/slack/config")
