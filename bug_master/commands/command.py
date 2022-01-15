@@ -39,6 +39,9 @@ class Command(ABC):
         self._channel_name = kwargs.get("channel_name")
         self._command, self._command_args = self.get_command(kwargs.get("text"))
 
+    def __str__(self):
+        return f"{self._command}, {self._channel_name}"
+
     @classmethod
     def get_command(cls, text: str) -> Tuple[str, List[str]]:
         code_blocks = re.findall(r"```(\n|-[\s\S]*?)```$", text)
@@ -100,18 +103,19 @@ class StatisticsCommand(Command):
 
     def get_stats(self, days: int) -> str:
         counter = Counter()
-
         start_time = datetime.date.today() - datetime.timedelta(days=days)
 
+        logger.info(f"Getting statistics from database for {days} days")
         for job in MessageEvent.select(channel=self._channel_id, since=start_time):
             counter[job.job_name] += 1
 
+        logger.info(f"Loaded {len(counter)} failures from jobs table")
         sorted_counter = [list(job) for job in counter.most_common()]
         if not sorted_counter:
+            logger.info(f"No data found for command {self}")
             return ""
 
-        table = str(tabulate(sorted_counter, headers=["Test", "Failures"]))
-
+        table = str(tabulate(sorted_counter, headers=["Test Name (link)", "Failures"]))
         rows = table.split("\n")
         headers, rows_data = rows[:2], rows[2:]
         for i in range(len(rows_data)):

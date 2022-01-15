@@ -87,10 +87,12 @@ async def commands(request: Request):
     if not_valid_response:
         return None, not_valid_response
 
+    logger.info(f"Handling new command")
     body = {k.decode(): v.pop().decode() for k, v in parse_qs(raw_body).items()}
     try:
         command = await commands_handler.get_command(body)
     except NotSupportedCommandError as e:
+        logger.warning(f"Failed to get command, {e}")
         return Command.get_response(f"{e}")
 
     return await command.handle()
