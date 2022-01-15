@@ -4,6 +4,5 @@ RUN dnf update -y && dnf install -y python39 && dnf clean all && python3 -m pip 
 COPY . app/
 WORKDIR app/
 RUN python3 -m pip install -I --no-cache-dir -r requirements.txt vcversioner
-RUN python3 ./hack.py
 
 CMD ["python3", "-m", "bug_master"]

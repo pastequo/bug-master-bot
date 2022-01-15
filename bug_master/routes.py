@@ -1,8 +1,9 @@
+import hmac
 import json
 from typing import Tuple, Union
 from urllib.parse import parse_qs
 
-from slack_sdk import signature
+from slack_sdk import signature as _signature
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
@@ -12,50 +13,67 @@ from .commands import Command, NotSupportedCommandError
 from .consts import logger
 from .events import Event, UrlVerificationEvent
 
-_signature_verifier = signature.SignatureVerifier(consts.SIGNING_SECRET)
+
+class SignatureVerifier(_signature.SignatureVerifier):
+    def is_valid(self, body: Union[str, bytes], timestamp: str, signature: str) -> bool:
+        """Verifies if the given signature is valid"""
+        if timestamp is None or signature is None:
+            return False
+
+        if abs(self.clock.now() - int(timestamp)) > 60 * 10:
+            return False
+
+        calculated_signature = self.generate_signature(timestamp=timestamp, body=body)
+        if calculated_signature is None:
+            return False
+        return hmac.compare_digest(calculated_signature, signature)
 
 
-async def validate_request(request) -> Tuple[bytes, dict, Union[Response, None]]:
-    body = await request.body()
-    headers = dict(request.headers) if hasattr(request, "headers") else {}
+class RouteValidator:
+    _signature_verifier = SignatureVerifier(consts.SIGNING_SECRET)
 
-    is_request_valid = _signature_verifier.is_valid_request(body, headers)
-    if not is_request_valid:
-        logger.warning(f"Got invalid request, {request.method} {headers} {request.url} {body}")
-        return body, headers, JSONResponse(content={"message": "Invalid request"}, status_code=401)
+    @classmethod
+    async def validate_request(cls, request) -> Tuple[bytes, dict, Union[Response, None]]:
+        body = await request.body()
+        headers = dict(request.headers) if hasattr(request, "headers") else {}
 
-    return body, headers, None
+        is_request_valid = cls._signature_verifier.is_valid_request(body, headers)
+        if not is_request_valid:
+            logger.warning(f"Got invalid request, {request.method} {headers} {request.url} {body}")
+            return body, headers, JSONResponse(content={"message": "Invalid request"}, status_code=401)
 
+        return body, headers, None
 
-async def validate_event_request(request) -> Tuple[Union[Event, None], Union[Response, None]]:
-    body, headers, not_valid_response = await validate_request(request)
-    if not_valid_response:
-        return None, not_valid_response
+    @classmethod
+    async def validate_event_request(cls, request) -> Tuple[Union[Event, None], Union[Response, None]]:
+        body, headers, not_valid_response = await cls.validate_request(request)
+        if not_valid_response:
+            return None, not_valid_response
 
-    event = await events_handler.get_event(await request.json())  # json.loads(body)
+        event = await events_handler.get_event(await request.json())  # json.loads(body)
 
-    if event is None or request.headers.get("x-slack-retry-num", False):
-        logger.info(f"Skipping duplicate or unsupported event: {event}")
-        return None, JSONResponse({"msg": "Success", "Code": 200})
+        if event is None or request.headers.get("x-slack-retry-num", False):
+            logger.info(f"Skipping duplicate or unsupported event: {event}")
+            return None, JSONResponse({"msg": "Success", "Code": 200})
 
-    if isinstance(event, UrlVerificationEvent):
-        logger.info("Url verification event - success")
-        return None, JSONResponse(
-            content=json.dumps({"challenge": json.loads(body).get("challenge", "")}),
-            status_code=200,
-            media_type="application/json",
-        )
+        if isinstance(event, UrlVerificationEvent):
+            logger.info("Url verification event - success")
+            return None, JSONResponse(
+                content=json.dumps({"challenge": json.loads(body).get("challenge", "")}),
+                status_code=200,
+                media_type="application/json",
+            )
 
-    if event.is_command_message():
-        logger.info(f"Skipping command message event {event}")
-        return None, JSONResponse({"msg": "Success", "Code": 200})
+        if event.is_command_message():
+            logger.info(f"Skipping command message event {event}")
+            return None, JSONResponse({"msg": "Success", "Code": 200})
 
-    return event, None
+        return event, None
 
 
 @app.post("/slack/events")
 async def events(request: Request):
-    event, response = await validate_event_request(request)
+    event, response = await RouteValidator.validate_event_request(request)
     if event is None:
         return response
 
@@ -65,7 +83,7 @@ async def events(request: Request):
 
 @app.post("/slack/commands")
 async def commands(request: Request):
-    raw_body, headers, not_valid_response = await validate_request(request)
+    raw_body, headers, not_valid_response = await RouteValidator.validate_request(request)
     if not_valid_response:
         return None, not_valid_response
 

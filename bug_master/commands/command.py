@@ -1,4 +1,5 @@
 import datetime
+import re
 from abc import ABC, abstractmethod
 from collections import Counter
 from typing import Dict, List, Tuple
@@ -6,8 +7,8 @@ from typing import Dict, List, Tuple
 from starlette.responses import JSONResponse, Response
 
 from bug_master.bug_master_bot import BugMasterBot
-from .. import consts
 
+from .. import consts
 from ..consts import logger
 from ..models import MessageEvent
 
@@ -39,11 +40,14 @@ class Command(ABC):
 
     @classmethod
     def get_command(cls, text: str) -> Tuple[str, List[str]]:
-        text = text.strip().split(" ")
+        code_blocks = re.findall(r"```(\n|-[\s\S]*?)```$", text)
+        if code_blocks:
+            text = text.replace(code_blocks[0], "")
 
-        if len(text) == 1:
-            return text[0], []
-        return text[0], text[1:]
+        command, *args = re.findall(r"[a-zA-Z0-9]+", text)
+        if code_blocks:
+            args += code_blocks
+        return command, args
 
     @classmethod
     @abstractmethod
@@ -56,7 +60,7 @@ class Command(ABC):
 
     @classmethod
     def get_response(cls, text: str) -> Response:
-        return JSONResponse({"response_type": "in_channel", "text": text})
+        return JSONResponse({"response_type": "ephemeral", "text": text})
 
 
 class GetChannelConfigurationCommand(Command):
@@ -116,13 +120,13 @@ class StatisticsCommand(Command):
                 raise ValueError
         except ValueError:
             return self.get_response(
-                f"Invalid number of history days, got {self._history_days} positive " f"int is required."
+                f"Invalid number of history days, got `{self._history_days}`. Positive integer is required."
             )
 
         stats = self.get_stats(days)
         if not stats:
             return self.get_response(f"There are no records for this channel in the last {days} days.")
-        return self.get_response(f"Statistics for the last {days} days:\n``` {stats} ```")
+        return self.get_response(f"Statistics for the last {days} days:\n```{stats}```")
 
 
 class HelpCommand(Command):

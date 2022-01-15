@@ -4,7 +4,7 @@ from typing import List
 
 from starlette.responses import JSONResponse, Response
 
-from bug_master import models
+from bug_master import consts, models
 from bug_master.bug_master_bot import BugMasterBot
 from bug_master.consts import CONFIGURATION_FILE_NAME, logger
 from bug_master.models import MessageEvent
@@ -27,6 +27,9 @@ class BaseEvent(ABC):
     @abstractmethod
     async def handle(self, **kwargs) -> Response:
         pass
+
+    def is_command_message(self):
+        return False
 
 
 class Event(BaseEvent, ABC):
@@ -91,7 +94,7 @@ class FileShareEvent(Event):
         logger.info(f"Handling {self.type}, {self._subtype} event")
 
         if self.contain_files:
-            await self._bot.refresh_configuration(self._channel, self._data.get("files", []))
+            await self._bot.refresh_file_configuration(self._channel, self._data.get("files", []))
         return JSONResponse({"msg": "Success", "Code": 200})
 
 
@@ -158,6 +161,10 @@ class MessageChannelEvent(Event):
             )
             return JSONResponse({"msg": "Success", "Code": 200})
 
+        if not self._data.get("text", "").replace(" ", "").startswith(consts.EVENT_FAILURE_PREFIX):
+            logger.info(f"Ignoring messages that do not start with {consts.EVENT_FAILURE_PREFIX}")
+            return JSONResponse({"msg": "Success", "Code": 200})
+
         if not self._bot.has_channel_configurations(self.channel):
             await self._bot.try_load_configurations_from_history(self.channel)
 
@@ -170,9 +177,6 @@ class MessageChannelEvent(Event):
             return JSONResponse({"msg": "Failure", "Code": 401})
 
         logger.info(f"Handling event {self}")
-        if not self._data.get("text", "").replace(" ", "").startswith(":red_jenkins_circle:"):
-            logger.info("Ignoring messages that do not start with :red_jenkins_circle:")
-            return JSONResponse({"msg": "Success", "Code": 200})
 
         links = self._get_links()
         for link in links:
@@ -257,5 +261,5 @@ class FileChangeEvent(Event):
         logger.info(f"Handling {self.type}, {self._subtype} event")
         file_info = await self.get_file_info()
         if file_info.get("title", "") == CONFIGURATION_FILE_NAME:
-            await self._bot.refresh_configuration(self._channel, [file_info])
+            await self._bot.refresh_file_configuration(self._channel, [file_info])
         return JSONResponse({"msg": "Success", "Code": 200})

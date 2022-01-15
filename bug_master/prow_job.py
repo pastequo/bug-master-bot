@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 import aiohttp
 from bs4 import BeautifulSoup, element
 
-from bug_master.channel_config import ChannelConfig
+from bug_master.channel_config_handler import ChannelFileConfig
 
 
 class ProwJobFailure:
@@ -86,7 +86,7 @@ class ProwJobFailure:
 
         return reactions, comments
 
-    async def get_failure_actions(self, bot_config: ChannelConfig) -> Tuple[List[str], List[str]]:
+    async def get_failure_actions(self, bot_config: ChannelFileConfig) -> Tuple[List[str], List[str]]:
         reactions = []
         comments = []
         for config_entry in bot_config.items():

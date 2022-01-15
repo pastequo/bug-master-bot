@@ -12,6 +12,10 @@ class CommandHandler:
 
     @classmethod
     def validate_command_body(cls, body: dict) -> str:
+        if body.get("text") is None:
+            raise NotSupportedCommandError(
+                "Hello, How can I help you? For more info you can" " always write `/bugmaster help`."
+            )
         command, _ = Command.get_command(body.get("text"))
         if not command or command not in SupportedCommands.get_commands_map():
             raise NotSupportedCommandError(
