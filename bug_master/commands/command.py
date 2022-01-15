@@ -100,7 +100,6 @@ class StatisticsCommand(Command):
 
     def get_stats(self, days: int) -> str:
         counter = Counter()
-        report_rows = []
 
         start_time = datetime.date.today() - datetime.timedelta(days=days)
 
@@ -108,10 +107,20 @@ class StatisticsCommand(Command):
             counter[job.job_name] += 1
 
         sorted_counter = [list(job) for job in counter.most_common()]
-        if sorted_counter:
-            report_rows.append(tabulate(sorted_counter, headers=["Test", "Failures"]))
+        if not sorted_counter:
+            return ""
 
-        return "\n".join(report_rows)
+        table = str(tabulate(sorted_counter, headers=["Test", "Failures"]))
+
+        rows = table.split("\n")
+        headers, rows_data = rows[:2], rows[2:]
+        for i in range(len(rows_data)):
+            job_name = sorted_counter[i][0]
+            rows_data[i] = rows_data[i].replace(
+                job_name, f"<{f'https://prow.ci.openshift.org/?job=*{job_name}*'} | {job_name}>"
+            )
+
+        return "\n".join(headers + rows_data)
 
     async def handle(self) -> Response:
         try:
