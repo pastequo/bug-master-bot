@@ -70,7 +70,10 @@ class ProwJobFailure:
         reactions, comments = [], []
         reaction = comment = None
 
-        if file_path.endswith("*"):
+        if "flaky_job_name" in config_entry and self._job_name == config_entry.get("flaky_job_name"):
+            reaction, comment = config_entry.get("emoji"), config_entry.get("text")
+
+        elif file_path.endswith("*"):
             reaction, comment = await self.glob(file_path, config_entry)
         else:
             content = await self.get_content(file_path)

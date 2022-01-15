@@ -4,6 +4,7 @@ from asyncio import AbstractEventLoop
 from typing import Dict, List, Union
 
 import aiohttp
+import slack_sdk
 import yaml
 from slack_sdk import signature
 from slack_sdk.errors import SlackApiError
@@ -100,7 +101,14 @@ class BugMasterBot:
         return channel in self._config
 
     async def add_reaction(self, channel: str, emoji: str, ts: str) -> AsyncSlackResponse:
-        return await self._sm_client.web_client.reactions_add(channel=channel, name=emoji, timestamp=ts)
+        try:
+            return await self._sm_client.web_client.reactions_add(channel=channel, name=emoji, timestamp=ts)
+        except slack_sdk.errors.SlackApiError as e:
+            if e.response.data.get("error") == "invalid_name":
+                logger.warning(f"Invalid configuration on channel {channel}. {e}, reaction={emoji}")
+                return await self.add_comment(channel, f"Invalid reaction `:{emoji}:`."
+                                                       " Please check your configuration file", ts)
+            raise
 
     async def add_comment(self, channel: str, comment: str, ts: str = None) -> AsyncSlackResponse:
         return await self._sm_client.web_client.chat_postMessage(channel=channel, text=comment, thread_ts=ts)
