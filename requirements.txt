@@ -10,3 +10,4 @@ SQLAlchemy==1.4.27
 uvicorn-loguru-integration==0.3.0
 beautifulsoup4==4.10.0
 schema==0.7.5
+tabulate==0.8.9

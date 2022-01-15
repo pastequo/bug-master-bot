@@ -5,6 +5,7 @@ from collections import Counter
 from typing import Dict, List, Tuple
 
 from starlette.responses import JSONResponse, Response
+from tabulate import tabulate
 
 from bug_master.bug_master_bot import BugMasterBot
 
@@ -99,19 +100,18 @@ class StatisticsCommand(Command):
 
     def get_stats(self, days: int) -> str:
         counter = Counter()
-        res = []
+        report_rows = []
 
         start_time = datetime.date.today() - datetime.timedelta(days=days)
 
         for job in MessageEvent.select(channel=self._channel_id, since=start_time):
             counter[job.job_name] += 1
 
-        jobs = list(counter.keys())
-        counts = list(counter.values())
-        for i in range(len(jobs)):
-            res.append(f" {i+1}. {jobs[i]} -> {counts[i]} failures")
+        sorted_counter = [list(job) for job in counter.most_common()]
+        if sorted_counter:
+            report_rows.append(tabulate(sorted_counter, headers=["Test", "Failures"]))
 
-        return "\n".join(res)
+        return "\n".join(report_rows)
 
     async def handle(self) -> Response:
         try:
