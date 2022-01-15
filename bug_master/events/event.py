@@ -144,6 +144,9 @@ class MessageChannelEvent(Event):
     def contain_files(self):
         return self._data and self._data.get("files")
 
+    def is_command_message(self):
+        return self._text and self._text.startswith("/bugmaster")
+
     async def handle(self, **kwargs) -> Response:
         logger.info(f"Handling {self.type}, {self._subtype} event")
         channel_name = kwargs.get("channel_info", {}).get("name", self.channel)
@@ -161,8 +164,8 @@ class MessageChannelEvent(Event):
         if not self._bot.has_channel_configurations(self.channel):
             await self._bot.add_comment(
                 self.channel,
-                f"Missing configuration file on channel {channel_name}. "
-                "Please add configuration file or remove the bot.",
+                f"BugMaster configuration file on channel `{channel_name}` is invalid or missing. "
+                "Please add or fix the configuration file or remove the bot.",
             )
             return JSONResponse({"msg": "Failure", "Code": 401})
 

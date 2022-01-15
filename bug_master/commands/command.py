@@ -6,6 +6,7 @@ from typing import Dict, List, Tuple
 from starlette.responses import JSONResponse, Response
 
 from bug_master.bug_master_bot import BugMasterBot
+from .. import consts
 
 from ..consts import logger
 from ..models import MessageEvent
@@ -72,10 +73,10 @@ class GetChannelConfigurationCommand(Command):
             await self._bot.try_load_configurations_from_history(self._channel_id)
             channel_config = self._bot.get_configuration(self._channel_id)
 
-        if not channel_config:
+        if channel_config is None:
             return self.get_response(
                 f"Can't find configurations for channel `{self._channel_name}`. You can upload"
-                f' configuration file ("bug_master_configuration.yaml") to the channel'
+                f" configuration file (`{consts.CONFIGURATION_FILE_NAME}`) to the channel"
             )
 
         return self.get_response(f"Current channel configuration - <{channel_config.permalink} | link>")
@@ -148,7 +149,7 @@ class HelpCommand(Command):
             f"```{self.get_commands_info()}```\n\n"
             f"*Configuration file:*\n"
             f"Bot configuration file, defines each job action on failure. The configuration file name must be named"
-            f" `bug_master_configuration.yaml`.\n"
+            f" `{consts.CONFIGURATION_FILE_NAME}`.\n"
             f"For each section (job failure) this are the following arguments:\n"
             f"``` 1. description  - Description of the failure.\n"
             f" 2. emoji - Reaction to add to the thread on case of match (If empty or missing no reaction "

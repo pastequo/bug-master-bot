@@ -46,6 +46,10 @@ async def validate_event_request(request) -> Tuple[Union[Event, None], Union[Res
             media_type="application/json",
         )
 
+    if event.is_command_message():
+        logger.info(f"Skipping command message event {event}")
+        return None, JSONResponse({"msg": "Success", "Code": 200})
+
     return event, None
 
 
