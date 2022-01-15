@@ -3,6 +3,8 @@ from abc import ABC, abstractmethod
 from collections import Counter
 from typing import Dict, List, Tuple
 
+from starlette.responses import JSONResponse, Response
+
 from bug_master.bug_master_bot import BugMasterBot
 
 from ..consts import logger
@@ -52,8 +54,8 @@ class Command(ABC):
         pass
 
     @classmethod
-    def get_response(cls, text: str):
-        return {"response_type": "in_channel", "text": text}
+    def get_response(cls, text: str) -> Response:
+        return JSONResponse({"response_type": "in_channel", "text": text})
 
 
 class GetChannelConfigurationCommand(Command):
@@ -61,7 +63,7 @@ class GetChannelConfigurationCommand(Command):
     def get_description(cls) -> str:
         return "Get the last updated configurations file in the channel."
 
-    async def handle(self) -> Dict[str, str]:
+    async def handle(self) -> Response:
         logger.info(f"Handling {self._command}")
 
         channel_config = self._bot.get_configuration(self._channel_id)
@@ -106,14 +108,15 @@ class StatisticsCommand(Command):
 
         return "\n".join(res)
 
-    async def handle(self) -> Dict[str, str]:
+    async def handle(self) -> Response:
         try:
             days = int(self._history_days)
             if days < 1:
                 raise ValueError
         except ValueError:
-            return self.get_response(f"Invalid number of history days, got {self._history_days} positive "
-                                     f"int is required.")
+            return self.get_response(
+                f"Invalid number of history days, got {self._history_days} positive " f"int is required."
+            )
 
         stats = self.get_stats(days)
         if not stats:
@@ -136,7 +139,7 @@ class HelpCommand(Command):
         )
         return commands_info
 
-    async def handle(self) -> Dict[str, str]:
+    async def handle(self) -> Response:
         logger.info(f"Handling {self._command}")
 
         return self.get_response(

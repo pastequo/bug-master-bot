@@ -2,6 +2,8 @@ import re
 from abc import ABC, abstractmethod
 from typing import List
 
+from starlette.responses import JSONResponse, Response
+
 from bug_master import models
 from bug_master.bug_master_bot import BugMasterBot
 from bug_master.consts import CONFIGURATION_FILE_NAME, logger
@@ -23,7 +25,7 @@ class BaseEvent(ABC):
             raise ValueError("Can't find event in given body")
 
     @abstractmethod
-    async def handle(self, **kwargs) -> dict:
+    async def handle(self, **kwargs) -> Response:
         pass
 
 
@@ -65,16 +67,16 @@ class ChannelJoinEvent(Event):
         self._channel_name = info.get("name", self._channel_name)
         self._is_private = info.get("is_private", self._is_private)
 
-    async def handle(self, **kwargs) -> dict:
+    async def handle(self, **kwargs) -> Response:
         logger.info(f"Handling {self.type}, {self._subtype} event")
 
         self._update_info(kwargs.get("channel_info", {}))
         kwargs = {"id": self.channel_id, "name": self.channel_name, "is_private": self._is_private}
         if not models.Channel.create(**kwargs):
             logger.warning(f"Failed to create or get channel {self.channel_id} - {self.channel_name} information")
-            return {"msg": "Failure", "Code": 401}
+            return JSONResponse({"msg": "Failure", "Code": 401})
 
-        return {"msg": "Success", "Code": 200}
+        return JSONResponse({"msg": "Success", "Code": 200})
 
 
 class FileShareEvent(Event):
@@ -85,12 +87,12 @@ class FileShareEvent(Event):
     def contain_files(self):
         return self._data and self._data.get("files")
 
-    async def handle(self, **kwargs) -> dict:
+    async def handle(self, **kwargs) -> Response:
         logger.info(f"Handling {self.type}, {self._subtype} event")
 
         if self.contain_files:
             await self._bot.refresh_configuration(self._channel, self._data.get("files", []))
-        return {"msg": "Success", "Code": 200}
+        return JSONResponse({"msg": "Success", "Code": 200})
 
 
 class UrlVerificationEvent(BaseEvent):
@@ -98,8 +100,8 @@ class UrlVerificationEvent(BaseEvent):
         super().__init__(body, bot)
         self.challenge = body.get("challenge", "")
 
-    async def handle(self, **kwargs) -> dict:
-        return {"msg": "Success", "Code": 200}
+    async def handle(self, **kwargs) -> Response:
+        return JSONResponse({"msg": "Success", "Code": 200})
 
     @classmethod
     def validate_event(cls, body: dict):
@@ -142,7 +144,7 @@ class MessageChannelEvent(Event):
     def contain_files(self):
         return self._data and self._data.get("files")
 
-    async def handle(self, **kwargs) -> dict:
+    async def handle(self, **kwargs) -> Response:
         logger.info(f"Handling {self.type}, {self._subtype} event")
         channel_name = kwargs.get("channel_info", {}).get("name", self.channel)
 
@@ -151,7 +153,7 @@ class MessageChannelEvent(Event):
             logger.info(
                 f"Skipping event on channel {channel_name} sent by {self._bot.id}:{self._bot.name} - " f"event: {self}"
             )
-            return {"msg": "Success", "Code": 200}
+            return JSONResponse({"msg": "Success", "Code": 200})
 
         if not self._bot.has_channel_configurations(self.channel):
             await self._bot.try_load_configurations_from_history(self.channel)
@@ -162,12 +164,12 @@ class MessageChannelEvent(Event):
                 f"Missing configuration file on channel {channel_name}. "
                 "Please add configuration file or remove the bot.",
             )
-            return {"msg": "Failure", "Code": 401}
+            return JSONResponse({"msg": "Failure", "Code": 401})
 
         logger.info(f"Handling event {self}")
         if not self._data.get("text", "").replace(" ", "").startswith(":red_jenkins_circle:"):
             logger.info("Ignoring messages that do not start with :red_jenkins_circle:")
-            return {"msg": "Success", "Code": 200}
+            return JSONResponse({"msg": "Success", "Code": 200})
 
         links = self._get_links()
         for link in links:
@@ -181,7 +183,7 @@ class MessageChannelEvent(Event):
             except IndexError:
                 continue
 
-        return {"msg": "Success", "Code": 200}
+        return JSONResponse({"msg": "Success", "Code": 200})
 
     def add_record(self, job_failure: ProwJobFailure):
         MessageEvent.create(
@@ -248,9 +250,9 @@ class FileChangeEvent(Event):
         except IndexError as e:
             logger.warning(f"Error while attempt to get channel info in {self._type}:{self._subtype}, {e}")
 
-    async def handle(self, **kwargs) -> dict:
+    async def handle(self, **kwargs) -> Response:
         logger.info(f"Handling {self.type}, {self._subtype} event")
         file_info = await self.get_file_info()
         if file_info.get("title", "") == CONFIGURATION_FILE_NAME:
             await self._bot.refresh_configuration(self._channel, [file_info])
-        return {"msg": "Success", "Code": 200}
+        return JSONResponse({"msg": "Success", "Code": 200})
