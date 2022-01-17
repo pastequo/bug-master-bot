@@ -101,19 +101,22 @@ class StatisticsCommand(Command):
     def get_description(cls) -> str:
         return "Print statics of last x days. Command: /bugmaster stats <integer> (default=10)."
 
-    def get_stats(self, days: int) -> str:
+    def get_stats(self, days: int) -> Tuple[str, int]:
         counter = Counter()
-        start_time = datetime.date.today() - datetime.timedelta(days=days)
+        today = datetime.date.today()
+        start_time = today - datetime.timedelta(days=days)
 
+        min_date = datetime.datetime.now()
         logger.info(f"Getting statistics from database for {days} days")
         for job in MessageEvent.select(channel=self._channel_id, since=start_time):
+            min_date = job.time if job.time < min_date else min_date
             counter[job.job_name] += 1
 
         logger.info(f"Loaded {len(counter)} failures from jobs table")
         sorted_counter = [list(job) for job in counter.most_common()]
         if not sorted_counter:
             logger.info(f"No data found for command {self}")
-            return ""
+            return "", (today - min_date.date()).days
 
         table = str(tabulate(sorted_counter, headers=["Test Name (link)", "Failures"]))
         rows = table.split("\n")
@@ -124,7 +127,7 @@ class StatisticsCommand(Command):
                 job_name, f"<{f'https://prow.ci.openshift.org/?job=*{job_name}*'} | {job_name}>"
             )
 
-        return "\n".join(headers + rows_data)
+        return "\n".join(headers + rows_data), (today - min_date.date()).days
 
     async def handle(self) -> Response:
         try:
@@ -136,7 +139,7 @@ class StatisticsCommand(Command):
                 f"Invalid number of history days, got `{self._history_days}`. Positive integer is required."
             )
 
-        stats = self.get_stats(days)
+        stats, days = self.get_stats(days)
         if not stats:
             return self.get_response(f"There are no records for this channel in the last {days} days.")
         return self.get_response(f"Statistics for the last {days} days:\n```{stats}```")
