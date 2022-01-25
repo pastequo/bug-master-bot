@@ -1,78 +1,19 @@
 import asyncio
-import json
 from asyncio import AbstractEventLoop
 from typing import Dict, List, Union
 
-import aiohttp
-import yaml
+import slack_sdk
+from schema import SchemaError
 from slack_sdk import signature
 from slack_sdk.errors import SlackApiError
 from slack_sdk.socket_mode.aiohttp import SocketModeClient
 from slack_sdk.web.async_client import AsyncWebClient
 from slack_sdk.web.async_slack_response import AsyncSlackResponse
 
+from . import consts
+from .channel_config_handler import ChannelFileConfig
 from .consts import logger
 from .models import Channel
-
-
-class BugMasterConfig:
-    SUPPORTED_FILETYPE = ("yaml", "json")
-
-    def __init__(self, file_info: dict) -> None:
-        if not file_info:
-            raise ValueError(f"Invalid file info {file_info}")
-
-        filetype = file_info["filetype"]
-        if filetype not in self.SUPPORTED_FILETYPE:
-            raise TypeError(f"Invalid file type. Got {filetype} expected to be one of {self.SUPPORTED_FILETYPE}")
-
-        self._title = file_info["title"]
-        self._filetype = filetype
-        self._url = file_info["url_private"]
-        self._permalink = file_info["permalink"]
-        self._content: Union[dict, None] = None
-
-    def __len__(self):
-        return len(self._content) if self._content else 0
-
-    @property
-    def name(self):
-        return self._title
-
-    @property
-    def permalink(self):
-        return self._permalink
-
-    def items(self):
-        return self._content.__iter__()
-
-    async def load(self, bot_token: str) -> "BugMasterConfig":
-        content = {}
-        headers = {"Authorization": "Bearer %s" % bot_token}
-
-        async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(self._url) as resp:
-                if resp.status == 200:
-                    raw_content = await resp.text()
-                else:
-                    self._content = {}
-                    return self
-
-            if self._filetype == "yaml":
-                content = yaml.safe_load(raw_content)
-            elif self._filetype == "json":
-                content = json.loads(raw_content)
-            else:
-                logger.warning("Invalid configuration file found")
-
-            self._content = content
-            self.validate_configurations(content)
-            return self
-
-    @classmethod
-    def validate_configurations(cls, content):
-        assert isinstance(content, list)
-        assert isinstance(content[0], dict) if len(content) > 0 else True
 
 
 class BugMasterBot:
@@ -81,7 +22,7 @@ class BugMasterBot:
         self._verifier = signature.SignatureVerifier(signing_secret)
         self._loop = loop or asyncio.get_event_loop()
         self._bot_token = bot_token
-        self._config: Dict[str, BugMasterConfig] = {}
+        self._config: Dict[str, ChannelFileConfig] = {}
         self._id = None
         self._name = None
 
@@ -100,39 +41,48 @@ class BugMasterBot:
         return channel in self._config
 
     async def add_reaction(self, channel: str, emoji: str, ts: str) -> AsyncSlackResponse:
-        return await self._sm_client.web_client.reactions_add(channel=channel, name=emoji, timestamp=ts)
+        try:
+            return await self._sm_client.web_client.reactions_add(channel=channel, name=emoji, timestamp=ts)
+        except slack_sdk.errors.SlackApiError as e:
+            if e.response.data.get("error") == "invalid_name":
+                logger.warning(f"Invalid configuration on channel {channel}. {e}, reaction={emoji}")
+                return await self.add_comment(
+                    channel, f"Invalid reaction `:{emoji}:`." " Please check your configuration file", ts
+                )
+            raise
 
     async def add_comment(self, channel: str, comment: str, ts: str = None) -> AsyncSlackResponse:
         return await self._sm_client.web_client.chat_postMessage(channel=channel, text=comment, thread_ts=ts)
 
-    def get_configuration(self, channel: str) -> Union[BugMasterConfig, None]:
+    def get_configuration(self, channel: str) -> Union[ChannelFileConfig, None]:
         return self._config.get(channel, None)
 
-    def _get_configuration(self, channel: str, files: list = None):
+    def _get_file_configuration(self, channel: str, files: list = None) -> ChannelFileConfig:
         if channel not in self._config:
-            return BugMasterConfig(files.pop() if files else [])
+            return ChannelFileConfig(files[0] if files else [])
         return self._config[channel]
 
-    async def refresh_configuration(self, channel: str, files: List[dict], from_history=False) -> bool:
+    async def refresh_file_configuration(self, channel: str, files: List[dict], from_history=False) -> bool:
         res = False
         files = [
             f
             for f in sorted(files, key=lambda f: f["timestamp"])
-            if f["title"].startswith("bug_master_configuration.yaml")
+            if f["title"].startswith(consts.CONFIGURATION_FILE_NAME)
         ]
         if not files:
             return res
         logger.info("Attempting to refresh configuration file")
-        bmc = self._get_configuration(channel, files)
+        bmc = self._get_file_configuration(channel, files)
+        self._config[channel] = bmc
 
         try:
             await bmc.load(self._bot_token)
-            self._config[channel] = bmc
             res = True
             logger.info(f"Configuration file loaded successfully with {len(self._config[channel])} entries")
-        except AssertionError:
-            if not from_history:
-                await self.add_comment(channel, "BugMasterBot configuration file is invalid")
+        except SchemaError:
+            # if not from_history:
+            self._config[channel] = bmc
+            await self.add_comment(channel, "BugMasterBot configuration file is invalid")
             return False
 
         if not from_history:
@@ -163,10 +113,11 @@ class BugMasterBot:
             logger.warning("Can't auth bot web_client")
 
     async def try_load_configurations_from_history(self, channel: str) -> bool:
-        res = await self._sm_client.web_client.files_list(channel=channel, types=BugMasterConfig.SUPPORTED_FILETYPE)
-        conf = await self.refresh_configuration(channel, res.data.get("files", []), from_history=True)
-        logger.info(f"Configurations loaded successfully from channel history for channel {channel}")
-        return conf
+        res = await self._sm_client.web_client.files_list(channel=channel, types=ChannelFileConfig.SUPPORTED_FILETYPE)
+        is_conf_valid = await self.refresh_file_configuration(channel, res.data.get("files", []), from_history=True)
+        if is_conf_valid:
+            logger.info(f"Configurations loaded successfully from channel history for channel {channel}")
+        return is_conf_valid
 
     async def get_file_info(self, file_id: str) -> dict:
         res = await self._sm_client.web_client.files_info(file=file_id)

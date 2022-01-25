@@ -3,7 +3,7 @@ from typing import Type, Union
 from ..bug_master_bot import BugMasterBot
 from ..consts import logger
 from . import NotSupportedCommandError
-from .command import Command, SupportedCommands, HelpCommand
+from .command import Command, HelpCommand, SupportedCommands
 
 
 class CommandHandler:
@@ -12,10 +12,16 @@ class CommandHandler:
 
     @classmethod
     def validate_command_body(cls, body: dict) -> str:
+        if body.get("text") is None:
+            raise NotSupportedCommandError(
+                "Hello, How can I help you? For more info you can" " always write `/bugmaster help`."
+            )
         command, _ = Command.get_command(body.get("text"))
         if not command or command not in SupportedCommands.get_commands_map():
-            raise NotSupportedCommandError(f"Command `{command}` is not supported. Available commands:\n"
-                                           f"```{HelpCommand.get_commands_info()}```")
+            raise NotSupportedCommandError(
+                f"Command `{command}` is not supported. Available commands:\n"
+                f"```{HelpCommand.get_commands_info()}```"
+            )
         return command
 
     async def get_command(self, body: dict) -> Union[Command, None]:

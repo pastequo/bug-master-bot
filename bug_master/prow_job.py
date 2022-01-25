@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 import aiohttp
 from bs4 import BeautifulSoup, element
 
-from bug_master.bug_master_bot import BugMasterConfig
+from bug_master.channel_config_handler import ChannelFileConfig
 
 
 class ProwJobFailure:
@@ -70,7 +70,10 @@ class ProwJobFailure:
         reactions, comments = [], []
         reaction = comment = None
 
-        if file_path.endswith("*"):
+        if "flaky_job_name" in config_entry and self._job_name == config_entry.get("flaky_job_name"):
+            reaction, comment = config_entry.get("emoji"), config_entry.get("text")
+
+        elif file_path.endswith("*"):
             reaction, comment = await self.glob(file_path, config_entry)
         else:
             content = await self.get_content(file_path)
@@ -83,7 +86,7 @@ class ProwJobFailure:
 
         return reactions, comments
 
-    async def get_failure_actions(self, bot_config: BugMasterConfig) -> Tuple[List[str], List[str]]:
+    async def get_failure_actions(self, bot_config: ChannelFileConfig) -> Tuple[List[str], List[str]]:
         reactions = []
         comments = []
         for config_entry in bot_config.items():

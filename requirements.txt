@@ -1,11 +1,13 @@
 uvicorn==0.15.0
-fastapi==0.70.0
+fastapi==0.71.0
 loguru==0.5.3
 slackers==1.0.0
-starlette==0.16.0
+starlette==0.17.1
 aiohttp==3.8.0
 PyYAML==6.0
 slack_sdk==3.11.2
 SQLAlchemy==1.4.27
 uvicorn-loguru-integration==0.3.0
 beautifulsoup4==4.10.0
+schema==0.7.5
+tabulate==0.8.9

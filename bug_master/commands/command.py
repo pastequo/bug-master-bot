@@ -1,10 +1,15 @@
 import datetime
+import re
 from abc import ABC, abstractmethod
 from collections import Counter
 from typing import Dict, List, Tuple
 
+from starlette.responses import JSONResponse, Response
+from tabulate import tabulate
+
 from bug_master.bug_master_bot import BugMasterBot
 
+from .. import consts
 from ..consts import logger
 from ..models import MessageEvent
 
@@ -34,13 +39,19 @@ class Command(ABC):
         self._channel_name = kwargs.get("channel_name")
         self._command, self._command_args = self.get_command(kwargs.get("text"))
 
+    def __str__(self):
+        return f"{self._command}, {self._channel_name}"
+
     @classmethod
     def get_command(cls, text: str) -> Tuple[str, List[str]]:
-        text = text.strip().split(" ")
+        code_blocks = re.findall(r"```(\n|-[\s\S]*?)```$", text)
+        if code_blocks:
+            text = text.replace(code_blocks[0], "")
 
-        if len(text) == 1:
-            return text[0], []
-        return text[0], text[1:]
+        command, *args = re.findall(r"[a-zA-Z0-9]+", text)
+        if code_blocks:
+            args += code_blocks
+        return command, args
 
     @classmethod
     @abstractmethod
@@ -52,8 +63,8 @@ class Command(ABC):
         pass
 
     @classmethod
-    def get_response(cls, text: str):
-        return {"response_type": "in_channel", "text": text}
+    def get_response(cls, text: str) -> Response:
+        return JSONResponse({"response_type": "ephemeral", "text": text})
 
 
 class GetChannelConfigurationCommand(Command):
@@ -61,7 +72,7 @@ class GetChannelConfigurationCommand(Command):
     def get_description(cls) -> str:
         return "Get the last updated configurations file in the channel."
 
-    async def handle(self) -> Dict[str, str]:
+    async def handle(self) -> Response:
         logger.info(f"Handling {self._command}")
 
         channel_config = self._bot.get_configuration(self._channel_id)
@@ -70,10 +81,10 @@ class GetChannelConfigurationCommand(Command):
             await self._bot.try_load_configurations_from_history(self._channel_id)
             channel_config = self._bot.get_configuration(self._channel_id)
 
-        if not channel_config:
+        if channel_config is None:
             return self.get_response(
                 f"Can't find configurations for channel `{self._channel_name}`. You can upload"
-                f' configuration file ("bug_master_configuration.yaml") to the channel'
+                f" configuration file (`{consts.CONFIGURATION_FILE_NAME}`) to the channel"
             )
 
         return self.get_response(f"Current channel configuration - <{channel_config.permalink} | link>")
@@ -90,35 +101,48 @@ class StatisticsCommand(Command):
     def get_description(cls) -> str:
         return "Print statics of last x days. Command: /bugmaster stats <integer> (default=10)."
 
-    def get_stats(self, days: int) -> str:
+    def get_stats(self, days: int) -> Tuple[str, int]:
         counter = Counter()
-        res = []
+        today = datetime.date.today()
+        start_time = today - datetime.timedelta(days=days)
 
-        start_time = datetime.date.today() - datetime.timedelta(days=days)
-
+        min_date = datetime.datetime.now()
+        logger.info(f"Getting statistics from database for {days} days")
         for job in MessageEvent.select(channel=self._channel_id, since=start_time):
+            min_date = job.time if job.time < min_date else min_date
             counter[job.job_name] += 1
 
-        jobs = list(counter.keys())
-        counts = list(counter.values())
-        for i in range(len(jobs)):
-            res.append(f" {i+1}. {jobs[i]} -> {counts[i]} failures")
+        logger.info(f"Loaded {len(counter)} failures from jobs table")
+        sorted_counter = [list(job) for job in counter.most_common()]
+        if not sorted_counter:
+            logger.info(f"No data found for command {self}")
+            return "", (today - min_date.date()).days
 
-        return "\n".join(res)
+        table = str(tabulate(sorted_counter, headers=["Test Name (link)", "Failures"]))
+        rows = table.split("\n")
+        headers, rows_data = rows[:2], rows[2:]
+        for i in range(len(rows_data)):
+            job_name = sorted_counter[i][0]
+            rows_data[i] = rows_data[i].replace(
+                job_name, f"<{f'https://prow.ci.openshift.org/?job=*{job_name}*'} | {job_name}>"
+            )
 
-    async def handle(self) -> Dict[str, str]:
+        return "\n".join(headers + rows_data), (today - min_date.date()).days
+
+    async def handle(self) -> Response:
         try:
             days = int(self._history_days)
             if days < 1:
                 raise ValueError
         except ValueError:
-            return self.get_response(f"Invalid number of history days, got {self._history_days} positive "
-                                     f"int is required.")
+            return self.get_response(
+                f"Invalid number of history days, got `{self._history_days}`. Positive integer is required."
+            )
 
-        stats = self.get_stats(days)
+        stats, days = self.get_stats(days)
         if not stats:
             return self.get_response(f"There are no records for this channel in the last {days} days.")
-        return self.get_response(f"Statistics for the last {days} days:\n``` {stats} ```")
+        return self.get_response(f"Statistics for the last {days} days:\n```{stats}```")
 
 
 class HelpCommand(Command):
@@ -136,7 +160,7 @@ class HelpCommand(Command):
         )
         return commands_info
 
-    async def handle(self) -> Dict[str, str]:
+    async def handle(self) -> Response:
         logger.info(f"Handling {self._command}")
 
         return self.get_response(
@@ -145,7 +169,7 @@ class HelpCommand(Command):
             f"```{self.get_commands_info()}```\n\n"
             f"*Configuration file:*\n"
             f"Bot configuration file, defines each job action on failure. The configuration file name must be named"
-            f" `bug_master_configuration.yaml`.\n"
+            f" `{consts.CONFIGURATION_FILE_NAME}`.\n"
             f"For each section (job failure) this are the following arguments:\n"
             f"``` 1. description  - Description of the failure.\n"
             f" 2. emoji - Reaction to add to the thread on case of match (If empty or missing no reaction "
