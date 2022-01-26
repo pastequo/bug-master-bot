@@ -16,6 +16,12 @@ class BaseChannelConfig:
                 Optional("contains"): str,
                 Optional("file_path"): str,
                 Optional("flaky_job_name"): str,
+                Optional("conditions"): [
+                    {
+                        Optional("contains"): str,
+                        Optional("file_path"): str
+                    }
+                ],
             }
         ]
     )
@@ -33,14 +39,6 @@ class BaseChannelConfig:
         except (SchemaError, AssertionError) as e:
             logger.info("Schema validation failed")
             raise SchemaError(f"Failed to validate channel configuration: {content}") from e
-
-
-# class ChannelDbConfig(BaseChannelConfig):
-#     def __init__(self, raw_config: str):
-#         super().__init__()
-#         content = yaml.safe_load(raw_config)
-#         self.validate_configurations(content)
-#         self._content = content
 
 
 class ChannelFileConfig(BaseChannelConfig):
