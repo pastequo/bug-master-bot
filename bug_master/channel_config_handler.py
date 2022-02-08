@@ -9,31 +9,28 @@ from schema import Optional, Or, Schema, SchemaError
 
 class BaseChannelConfig:
     _config_schema = Schema(
-        [
-            {
-                "description": str,
-                Or("emoji", "text"): str,
-                Optional("contains"): str,
-                Optional("file_path"): str,
-                Optional("flaky_job_name"): str,
-                Optional("conditions"): [
-                    {
-                        Optional("contains"): str,
-                        Optional("file_path"): str
-                    }
-                ],
-            }
-        ]
+        {
+            Optional("assignees"): [{"job_name": str, "users": [str]}],
+            "actions": [
+                {
+                    "description": str,
+                    Or("emoji", "text"): str,
+                    Optional("contains"): str,
+                    Optional("file_path"): str,
+                    Optional("job_name"): str,
+                    Optional("conditions"): [{Optional("contains"): str, Optional("file_path"): str}],
+                }
+            ],
+        }
     )
 
     def __init__(self):
-        self._content: List[dict] = []
+        self._actions: List[dict] = []
+        self._assignees: List[dict] = []
 
     @classmethod
     def validate_configurations(cls, content: List[Dict[str, Any]]):
         try:
-            assert isinstance(content, list)
-            assert isinstance(content[0], dict) if len(content) > 0 else True
             cls._config_schema.validate(content)
             return True
         except (SchemaError, AssertionError) as e:
@@ -59,7 +56,7 @@ class ChannelFileConfig(BaseChannelConfig):
         self._permalink = file_info["permalink"]
 
     def __len__(self):
-        return len(self._content)
+        return len(self._actions)
 
     @property
     def name(self):
@@ -69,8 +66,11 @@ class ChannelFileConfig(BaseChannelConfig):
     def permalink(self):
         return self._permalink
 
-    def items(self):
-        return self._content.__iter__()
+    def actions_items(self):
+        return self._actions.__iter__()
+
+    def assignees_items(self):
+        return self._assignees.__iter__()
 
     async def load(self, bot_token: str) -> "ChannelFileConfig":
         content = {}
@@ -91,5 +91,6 @@ class ChannelFileConfig(BaseChannelConfig):
                 logger.warning("Invalid configuration file found")
 
             self.validate_configurations(content)
-            self._content = content
+            self._assignees = content.get("assignees")
+            self._actions = content.get("actions")
             return self

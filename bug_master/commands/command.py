@@ -170,7 +170,7 @@ class HelpCommand(Command):
             f"*Configuration file:*\n"
             f"Bot configuration file, defines each job action on failure. The configuration file name must be named"
             f" `{consts.CONFIGURATION_FILE_NAME}`.\n"
-            f"For each section (job failure) this are the following arguments:\n"
+            f"For each action (job failure) this are the following arguments:\n"
             f"``` 1. description  - Description of the failure.\n"
             f" 2. emoji - Reaction to add to the thread on case of match (If empty or missing no reaction "
             f"is posted).\n"

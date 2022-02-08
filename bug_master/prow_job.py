@@ -1,5 +1,5 @@
 import re
-from typing import List, Optional, Tuple, Set
+from typing import List, Optional, Set, Tuple
 from urllib.parse import urljoin
 
 import aiohttp
@@ -70,7 +70,7 @@ class ProwJobFailure:
         reactions, comments = set(), set()
         reaction = comment = None
 
-        if "flaky_job_name" in config_entry and self._job_name == config_entry.get("flaky_job_name"):
+        if "job_name" in config_entry and self._job_name.startswith(config_entry.get("job_name")):
             reaction, comment = config_entry.get("emoji"), config_entry.get("text")
 
         elif file_path.endswith("*"):
@@ -88,18 +88,29 @@ class ProwJobFailure:
     async def get_failure_actions(self, bot_config: ChannelFileConfig) -> Tuple[List[str], List[str]]:
         reactions = set()
         comments = set()
-        for config_entry in bot_config.items():
-            conditions = config_entry.get("conditions", [{"contains": config_entry.get("contains", ""),
-                                                          "file_path": config_entry.get("file_path", "")}
-                                                         ])
+        for action in bot_config.actions_items():
+            conditions = action.get(
+                "conditions", [{"contains": action.get("contains", ""), "file_path": action.get("file_path", "")}]
+            )
             for condition in conditions:
-                result_reactions, result_comments = await self.f(**condition, config_entry=config_entry)
+                result_reactions, result_comments = await self.format_and_update_actions(
+                    **condition, config_entry=action
+                )
                 reactions.update(result_reactions)
                 comments.update(result_comments)
 
+        for assignees in bot_config.assignees_items():
+            if self._job_name.startswith(assignees["job_name"]):
+                username = " ".join([f"@{username}" for username in assignees["users"]])
+                comment = f"{username} You have been automatically assigned to investigate this job failure"
+                comments.update([comment])
+                break
+
         return list(reactions), list(comments)
 
-    async def f(self, file_path: str, contains: str, config_entry: dict) -> Tuple[Set[str], Set[str]]:
+    async def format_and_update_actions(
+        self, file_path: str, contains: str, config_entry: dict
+    ) -> Tuple[Set[str], Set[str]]:
         if "{job_name}" in file_path:
             file_path = file_path.format(job_name=self._job_name)
 
