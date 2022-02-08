@@ -1,5 +1,5 @@
 import re
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Set
 from urllib.parse import urljoin
 
 import aiohttp
@@ -66,8 +66,8 @@ class ProwJobFailure:
                 return result.get("emoji"), result.get("text")
         return None, None
 
-    async def _update_actions(self, file_path: str, config_entry: dict) -> Tuple[List[str], List[str]]:
-        reactions, comments = [], []
+    async def _update_actions(self, file_path: str, contains: str, config_entry: dict) -> Tuple[Set[str], Set[str]]:
+        reactions, comments = set(), set()
         reaction = comment = None
 
         if "flaky_job_name" in config_entry and self._job_name == config_entry.get("flaky_job_name"):
@@ -77,25 +77,30 @@ class ProwJobFailure:
             reaction, comment = await self.glob(file_path, config_entry)
         else:
             content = await self.get_content(file_path)
-            contains = config_entry.get("contains")
             if contains and contains in content:
                 reaction, comment = config_entry.get("emoji"), config_entry.get("text")
 
-        reactions.append(reaction) if reaction else None
-        comments.append(comment) if comment else None
+        reactions.add(reaction) if reaction else None
+        comments.add(comment) if comment else None
 
         return reactions, comments
 
     async def get_failure_actions(self, bot_config: ChannelFileConfig) -> Tuple[List[str], List[str]]:
-        reactions = []
-        comments = []
+        reactions = set()
+        comments = set()
         for config_entry in bot_config.items():
-            file_path = config_entry.get("file_path", "")
-            if "{job_name}" in file_path:
-                file_path = file_path.format(job_name=self._job_name)
+            conditions = config_entry.get("conditions", [{"contains": config_entry.get("contains", ""),
+                                                          "file_path": config_entry.get("file_path", "")}
+                                                         ])
+            for condition in conditions:
+                result_reactions, result_comments = await self.f(**condition, config_entry=config_entry)
+                reactions.update(result_reactions)
+                comments.update(result_comments)
 
-            result_reactions, result_comments = await self._update_actions(file_path, config_entry)
-            reactions += result_reactions
-            comments += result_comments
+        return list(reactions), list(comments)
 
-        return reactions, comments
+    async def f(self, file_path: str, contains: str, config_entry: dict) -> Tuple[Set[str], Set[str]]:
+        if "{job_name}" in file_path:
+            file_path = file_path.format(job_name=self._job_name)
+
+        return await self._update_actions(file_path, contains, config_entry)
