@@ -109,10 +109,13 @@ class ProwJobFailure:
                 comment = Comment(
                     text=f"{username} You have been automatically assigned to investigate this job failure",
                     parse="full",
-                    type=CommentType.ASSIGNEE
+                    type=CommentType.ASSIGNEE,
                 )
                 if bot_config.assignees_issue_url:
-                    link_comment = Comment(text=f"See <{bot_config.assignees_issue_url}|link> for more information", type=CommentType.MORE_INFO)
+                    link_comment = Comment(
+                        text=f"See <{bot_config.assignees_issue_url}|link> for more information",
+                        type=CommentType.MORE_INFO,
+                    )
 
                 comments.update([comment, link_comment]) if link_comment else comments.update([comment])
                 break

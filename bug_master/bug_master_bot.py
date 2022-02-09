@@ -89,7 +89,9 @@ class BugMasterBot:
 
         if not from_history:
             await self.add_comment(
-                channel, f"BugMasterBot configuration file `{self._config[channel].name}` " f"updated successfully"
+                channel,
+                f"BugMasterBot configuration <{bmc.permalink} | file> `{self._config[channel].name}` "
+                f"updated successfully",
             )
         return res
 
