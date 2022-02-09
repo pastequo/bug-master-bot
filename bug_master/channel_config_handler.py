@@ -10,7 +10,7 @@ from schema import Optional, Or, Schema, SchemaError
 class BaseChannelConfig:
     _config_schema = Schema(
         {
-            Optional("assignees"): [{"job_name": str, "users": [str]}],
+            Optional("assignees"): {"issue_url": str, "data": [{"job_name": str, "users": [str]}]},
             "actions": [
                 {
                     "description": str,
@@ -66,11 +66,17 @@ class ChannelFileConfig(BaseChannelConfig):
     def permalink(self):
         return self._permalink
 
+    @property
+    def assignees_issue_url(self):
+        if self._assignees:
+            return self._assignees.get("issue_url", "")
+        return ""
+
     def actions_items(self):
         return self._actions.__iter__()
 
     def assignees_items(self):
-        return self._assignees.__iter__()
+        return self._assignees.get("data", []).__iter__()
 
     async def load(self, bot_token: str) -> "ChannelFileConfig":
         content = {}

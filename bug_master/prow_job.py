@@ -6,6 +6,7 @@ import aiohttp
 from bs4 import BeautifulSoup, element
 
 from bug_master.channel_config_handler import ChannelFileConfig
+from bug_master.entities import Comment
 
 
 class ProwJobFailure:
@@ -85,7 +86,7 @@ class ProwJobFailure:
 
         return reactions, comments
 
-    async def get_failure_actions(self, bot_config: ChannelFileConfig) -> Tuple[List[str], List[str]]:
+    async def get_failure_actions(self, bot_config: ChannelFileConfig) -> Tuple[List[str], List[Comment]]:
         reactions = set()
         comments = set()
         for action in bot_config.actions_items():
@@ -96,14 +97,23 @@ class ProwJobFailure:
                 result_reactions, result_comments = await self.format_and_update_actions(
                     **condition, config_entry=action
                 )
+                for comment in result_comments:
+                    comments.add(Comment(text=comment))
                 reactions.update(result_reactions)
-                comments.update(result_comments)
 
         for assignees in bot_config.assignees_items():
             if self._job_name.startswith(assignees["job_name"]):
                 username = " ".join([f"@{username}" for username in assignees["users"]])
-                comment = f"{username} You have been automatically assigned to investigate this job failure"
-                comments.update([comment])
+
+                link_comment = ""
+                comment = Comment(
+                    text=f"{username} You have been automatically assigned to investigate this job failure",
+                    parse="full",
+                )
+                if bot_config.assignees_issue_url:
+                    link_comment = Comment(text=f"See <{bot_config.assignees_issue_url}|link> for more information")
+
+                comments.update([comment, link_comment]) if link_comment else comments.update([comment])
                 break
 
         return list(reactions), list(comments)

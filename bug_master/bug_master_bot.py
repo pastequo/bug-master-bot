@@ -51,7 +51,7 @@ class BugMasterBot:
                 )
             raise
 
-    async def add_comment(self, channel: str, comment: str, ts: str = None, parse: str = "full") -> AsyncSlackResponse:
+    async def add_comment(self, channel: str, comment: str, ts: str = None, parse: str = "none") -> AsyncSlackResponse:
         return await self._sm_client.web_client.chat_postMessage(
             channel=channel, text=comment, thread_ts=ts, parse=parse
         )
