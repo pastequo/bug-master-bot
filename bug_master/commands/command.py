@@ -91,7 +91,7 @@ class GetChannelConfigurationCommand(Command):
 
 
 class StatisticsCommand(Command):
-    DEFAULT_STAT_HISTORY = 10
+    DEFAULT_STAT_HISTORY = 3
 
     def __init__(self, bot: BugMasterBot, **kwargs) -> None:
         super().__init__(bot, **kwargs)
@@ -116,7 +116,7 @@ class StatisticsCommand(Command):
         sorted_counter = [list(job) for job in counter.most_common()]
         if not sorted_counter:
             logger.info(f"No data found for command {self}")
-            return "", (today - min_date.date()).days
+            return "", (today - min_date.date()).days + 1
 
         table = str(tabulate(sorted_counter, headers=["Test Name (link)", "Failures"]))
         rows = table.split("\n")
@@ -127,7 +127,7 @@ class StatisticsCommand(Command):
                 job_name, f"<{f'https://prow.ci.openshift.org/?job=*{job_name}*'} | {job_name}>"
             )
 
-        return "\n".join(headers + rows_data), (today - min_date.date()).days
+        return "\n".join(headers + rows_data), (today - min_date.date()).days + 1
 
     async def handle(self) -> Response:
         try:
@@ -170,7 +170,7 @@ class HelpCommand(Command):
             f"*Configuration file:*\n"
             f"Bot configuration file, defines each job action on failure. The configuration file name must be named"
             f" `{consts.CONFIGURATION_FILE_NAME}`.\n"
-            f"For each section (job failure) this are the following arguments:\n"
+            f"For each action (job failure) this are the following arguments:\n"
             f"``` 1. description  - Description of the failure.\n"
             f" 2. emoji - Reaction to add to the thread on case of match (If empty or missing no reaction "
             f"is posted).\n"

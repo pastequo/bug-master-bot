@@ -7,6 +7,7 @@ from starlette.responses import JSONResponse, Response
 from bug_master import consts, models
 from bug_master.bug_master_bot import BugMasterBot
 from bug_master.consts import CONFIGURATION_FILE_NAME, logger
+from bug_master.entities import Comment
 from bug_master.models import MessageEvent
 from bug_master.prow_job import ProwJobFailure
 
@@ -182,10 +183,10 @@ class MessageChannelEvent(Event):
         for link in links:
             try:
                 pj = ProwJobFailure(link)
-                emojis, texts = await pj.get_failure_actions(self._bot.get_configuration(self._channel))
-                logger.debug(f"Adding comments={texts} and emojis={emojis}")
+                emojis, comments = await pj.get_failure_actions(self._bot.get_configuration(self._channel))
+                logger.debug(f"Adding comments={','.join([c.text for c in comments])} and emojis={emojis}")
                 await self.add_reactions(emojis)
-                await self.add_comments(texts)
+                await self.add_comments(comments)
                 self.add_record(pj)
             except IndexError:
                 continue
@@ -207,10 +208,10 @@ class MessageChannelEvent(Event):
             logger.debug(f"Adding reactions to channel {self._channel} for ts {self._ts}")
             await self._bot.add_reaction(self._channel, emoji, self._ts)
 
-    async def add_comments(self, comments: List[str]):
-        for comment in comments:
+    async def add_comments(self, comments: List[Comment]):
+        for comment in sorted(comments, key=lambda c: c.type.value):
             logger.debug(f"Adding comment in channel {self._channel} for ts {self._ts}")
-            await self._bot.add_comment(self._channel, comment, self._ts)
+            await self._bot.add_comment(self._channel, comment.text, self._ts, comment.parse)
 
     def _get_links(self) -> List[str]:
         urls = list()
