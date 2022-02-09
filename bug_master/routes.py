@@ -92,8 +92,8 @@ async def commands(request: Request):
     try:
         command = await commands_handler.get_command(body)
     except NotSupportedCommandError as e:
-        logger.warning(f"Failed to get command, {e}")
-        return Command.get_response(f"{e}")
+        logger.warning(f"Failed to get command, {e.command}")
+        return Command.get_response(f"{e.message}")
 
     return await command.handle()
 

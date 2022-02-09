@@ -10,7 +10,11 @@ from schema import Optional, Or, Schema, SchemaError
 class BaseChannelConfig:
     _config_schema = Schema(
         {
-            Optional("assignees"): {"issue_url": str, "data": [{"job_name": str, "users": [str]}]},
+            Optional("assignees"): {
+                Optional("disable_auto_assign"): bool,
+                "issue_url": str,
+                "data": [{"job_name": str, "users": [str]}],
+            },
             "actions": [
                 {
                     "description": str,
@@ -57,6 +61,10 @@ class ChannelFileConfig(BaseChannelConfig):
 
     def __len__(self):
         return len(self._actions)
+
+    @property
+    def disable_auto_assign(self):
+        return self._assignees.get("disable_auto_assign", False) if self._assignees else False
 
     @property
     def name(self):

@@ -29,7 +29,10 @@ class SupportedCommands:
 
 
 class NotSupportedCommandError(Exception):
-    pass
+    def __init__(self, message, command: str = ""):
+        super().__init__(self, message)
+        self.command = command
+        self.message = message
 
 
 class Command(ABC):
@@ -99,7 +102,9 @@ class StatisticsCommand(Command):
 
     @classmethod
     def get_description(cls) -> str:
-        return "Print statics of last x days. Command: /bugmaster stats <integer> (default=10)."
+        return (
+            f"Print statics of last x days. Command: /bugmaster stats <integer> (default={cls.DEFAULT_STAT_HISTORY})."
+        )
 
     def get_stats(self, days: int) -> Tuple[str, int]:
         counter = Counter()

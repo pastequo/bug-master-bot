@@ -9,6 +9,8 @@ from bs4 import BeautifulSoup, element
 from bug_master.channel_config_handler import ChannelFileConfig
 from bug_master.entities import Comment, CommentType
 
+from .consts import logger
+
 
 @dataclass
 class ProwResource:
@@ -128,10 +130,26 @@ class ProwJobFailure:
 
         return reactions, comments
 
-    async def get_failure_actions(self, bot_config: ChannelFileConfig) -> Tuple[List[str], List[Comment]]:
+    async def get_failure_actions(
+        self, channel: str, channel_config: ChannelFileConfig
+    ) -> Tuple[List[str], List[Comment]]:
+        comments, reactions = await self._get_job_actions(channel_config)
+
+        if channel_config.disable_auto_assign:
+            logger.info(
+                f"Skipping automatic assign for {channel} due to that `disable_auto_assign` flag was set to True"
+            )
+            return list(reactions), list(comments)
+
+        self._append_assignees_comments(channel_config, comments)
+
+        return list(reactions), list(comments)
+
+    async def _get_job_actions(self, channel_config: ChannelFileConfig) -> Tuple[Set[Comment], Set[str]]:
         reactions = set()
         comments = set()
-        for action in bot_config.actions_items():
+
+        for action in channel_config.actions_items():
             conditions = action.get(
                 "conditions", [{"contains": action.get("contains", ""), "file_path": action.get("file_path", "")}]
             )
@@ -143,7 +161,10 @@ class ProwJobFailure:
                     comments.add(Comment(text=comment, type=CommentType.ERROR_INFO))
                 reactions.update(result_reactions)
 
-        for assignees in bot_config.assignees_items():
+        return comments, reactions
+
+    def _append_assignees_comments(self, channel_config: ChannelFileConfig, comments: Set[Comment]):
+        for assignees in channel_config.assignees_items():
             if self.job_name.startswith(assignees["job_name"]):
                 username = " ".join([f"@{username}" for username in assignees["users"]])
 
@@ -153,16 +174,14 @@ class ProwJobFailure:
                     parse="full",
                     type=CommentType.ASSIGNEE,
                 )
-                if bot_config.assignees_issue_url:
+                if channel_config.assignees_issue_url:
                     link_comment = Comment(
-                        text=f"See <{bot_config.assignees_issue_url}|link> for more information",
+                        text=f"See <{channel_config.assignees_issue_url}|link> for more information",
                         type=CommentType.MORE_INFO,
                     )
 
                 comments.update([comment, link_comment]) if link_comment else comments.update([comment])
                 break
-
-        return list(reactions), list(comments)
 
     async def format_and_update_actions(
         self, file_path: str, contains: str, config_entry: dict

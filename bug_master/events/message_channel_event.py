@@ -76,6 +76,7 @@ class MessageChannelEvent(Event):
             return JSONResponse({"msg": "Failure", "Code": 401})
 
         logger.info(f"Handling event {self}")
+        configuration = self._bot.get_configuration(self._channel)
 
         links = self._get_links()
         for link in links:
@@ -84,7 +85,7 @@ class MessageChannelEvent(Event):
                 continue
             try:
                 pj = await ProwJobFailure(link).load()
-                emojis, comments = await pj.get_failure_actions(self._bot.get_configuration(self._channel))
+                emojis, comments = await pj.get_failure_actions(self._channel, configuration)
                 logger.debug(f"Adding comments={','.join([c.text for c in comments])} and emojis={emojis}")
                 await self.add_reactions(emojis)
                 await self.add_comments(comments)
