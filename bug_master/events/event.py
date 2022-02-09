@@ -209,7 +209,7 @@ class MessageChannelEvent(Event):
             await self._bot.add_reaction(self._channel, emoji, self._ts)
 
     async def add_comments(self, comments: List[Comment]):
-        for comment in comments:
+        for comment in sorted(comments, key=lambda c: c.type.value):
             logger.debug(f"Adding comment in channel {self._channel} for ts {self._ts}")
             await self._bot.add_comment(self._channel, comment.text, self._ts, comment.parse)
 

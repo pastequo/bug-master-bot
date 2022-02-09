@@ -6,7 +6,7 @@ import aiohttp
 from bs4 import BeautifulSoup, element
 
 from bug_master.channel_config_handler import ChannelFileConfig
-from bug_master.entities import Comment
+from bug_master.entities import Comment, CommentType
 
 
 class ProwJobFailure:
@@ -98,7 +98,7 @@ class ProwJobFailure:
                     **condition, config_entry=action
                 )
                 for comment in result_comments:
-                    comments.add(Comment(text=comment))
+                    comments.add(Comment(text=comment, type=CommentType.ERROR_INFO))
                 reactions.update(result_reactions)
 
         for assignees in bot_config.assignees_items():
@@ -109,9 +109,10 @@ class ProwJobFailure:
                 comment = Comment(
                     text=f"{username} You have been automatically assigned to investigate this job failure",
                     parse="full",
+                    type=CommentType.ASSIGNEE
                 )
                 if bot_config.assignees_issue_url:
-                    link_comment = Comment(text=f"See <{bot_config.assignees_issue_url}|link> for more information")
+                    link_comment = Comment(text=f"See <{bot_config.assignees_issue_url}|link> for more information", type=CommentType.MORE_INFO)
 
                 comments.update([comment, link_comment]) if link_comment else comments.update([comment])
                 break
