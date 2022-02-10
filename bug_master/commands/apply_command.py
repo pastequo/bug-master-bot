@@ -12,7 +12,7 @@ from .command import Command
 
 class ApplyCommand(Command):
     DEFAULT_HISTORY_MESSAGES_TO_READ = 20
-    MAX_HISTORY_MESSAGES_TO_READ = 30
+    MAX_HISTORY_MESSAGES_TO_READ = 200
 
     def __init__(self, bot: BugMasterBot, **kwargs) -> None:
         super().__init__(bot, **kwargs)
@@ -78,6 +78,7 @@ class ApplyCommand(Command):
             mce = MessageChannelEvent(dummy_event_body, self._bot)
             channel_info = await mce.get_channel_info()
 
+            await asyncio.sleep(1)
             task = asyncio.get_event_loop().create_task(mce.handle(channel_info=channel_info))
             tasks.append(task)
 
