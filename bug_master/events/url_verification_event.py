@@ -1,8 +1,8 @@
 from loguru import logger
 from starlette.responses import JSONResponse, Response
 
-from bug_master.bug_master_bot import BugMasterBot
-from bug_master.events.event import BaseEvent
+from ..bug_master_bot import BugMasterBot
+from .event import BaseEvent
 
 
 class UrlVerificationEvent(BaseEvent):

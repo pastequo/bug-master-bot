@@ -1,3 +1,4 @@
+import asyncio
 import hmac
 import json
 from typing import Tuple, Union
@@ -78,7 +79,8 @@ async def events(request: Request):
         return response
 
     channel_info = await event.get_channel_info()
-    return await event.handle(channel_info=channel_info)
+    asyncio.get_event_loop().create_task(event.handle(channel_info=channel_info))
+    return JSONResponse({"msg": "Success", "Code": 200})
 
 
 @app.post("/slack/commands")

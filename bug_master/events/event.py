@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 from starlette.responses import Response
 
-from bug_master.bug_master_bot import BugMasterBot
+from ..bug_master_bot import BugMasterBot
 
 
 class BaseEvent(ABC):
@@ -11,7 +11,6 @@ class BaseEvent(ABC):
         self._bot = bot
         self._data: dict = body.get("event")
         self._event_id = body.get("event_id")
-        self._event_time = body.get("event_time")
 
     @classmethod
     def validate_event(cls, body: dict):

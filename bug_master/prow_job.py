@@ -6,10 +6,9 @@ from urllib.parse import urljoin
 import aiohttp
 from bs4 import BeautifulSoup, element
 
-from bug_master.channel_config_handler import ChannelFileConfig
-from bug_master.entities import Comment, CommentType
-
+from .channel_config_handler import ChannelFileConfig
 from .consts import logger
+from .entities import Comment, CommentType
 
 
 @dataclass

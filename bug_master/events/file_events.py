@@ -1,9 +1,9 @@
 from loguru import logger
 from starlette.responses import JSONResponse, Response
 
-from bug_master.bug_master_bot import BugMasterBot
-from bug_master.consts import CONFIGURATION_FILE_NAME
-from bug_master.events import Event
+from ..bug_master_bot import BugMasterBot
+from ..consts import CONFIGURATION_FILE_NAME
+from ..events import Event
 
 
 class FileShareEvent(Event):

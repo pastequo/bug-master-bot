@@ -1,9 +1,9 @@
 from loguru import logger
 from starlette.responses import JSONResponse, Response
 
-from bug_master import models
-from bug_master.bug_master_bot import BugMasterBot
-from bug_master.events import Event
+from .. import models
+from ..bug_master_bot import BugMasterBot
+from ..events import Event
 
 
 class ChannelJoinEvent(Event):

@@ -4,27 +4,25 @@ from typing import List
 from loguru import logger
 from starlette.responses import JSONResponse, Response
 
-from bug_master import consts
-from bug_master.bug_master_bot import BugMasterBot
-from bug_master.entities import Comment
-from bug_master.events import Event
-from bug_master.models import MessageEvent
-from bug_master.prow_job import ProwJobFailure
+from .. import consts
+from ..bug_master_bot import BugMasterBot
+from ..entities import Comment
+from ..models import MessageEvent
+from ..prow_job import ProwJobFailure
+from .event import Event
 
 
 class MessageChannelEvent(Event):
     def __init__(self, body: dict, bot: BugMasterBot) -> None:
         super().__init__(body, bot)
-        self._msg_id = self._data.get("client_msg_id")
         self._user = self._data.get("user")
-        self._channel_type = self._data.get("channel_type")
         self._text = self._data.get("text")
         self._ts = self._data.get("ts")
 
     def __str__(self):
         return (
-            f"id: {self._event_id}, time: {self._event_time}, user: {self._user}, "
-            f"channel: {self._channel} ts: {self._ts}, has_file: {self.contain_files}"
+            f"id: {self._event_id}, user: {self._user}, channel: {self._channel} ts: {self._ts},"
+            f" has_file: {self.contain_files}"
         )
 
     @property
@@ -38,7 +36,7 @@ class MessageChannelEvent(Event):
     @property
     def is_self_event(self) -> bool:
         if "bot_id" in self._data:
-            if self._bot.id == self._data.get("bot_id"):
+            if self._bot.bot_id == self._data.get("bot_id"):
                 return True
         return False
 
@@ -56,7 +54,8 @@ class MessageChannelEvent(Event):
         # ignore messages sent by bots or retries
         if self.is_self_event:
             logger.info(
-                f"Skipping event on channel {channel_name} sent by {self._bot.id}:{self._bot.name} - " f"event: {self}"
+                f"Skipping event on channel {channel_name} sent by {self._bot.bot_id}:{self._bot.name} - "
+                f"event: {self}"
             )
             return JSONResponse({"msg": "Success", "Code": 200})
 
