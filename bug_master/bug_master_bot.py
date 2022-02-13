@@ -28,7 +28,7 @@ class BugMasterBot:
         self._name = None
 
     def __str__(self):
-        return f"{self._name}:{self._bot_id}"
+        return f"{self._name}:{self._bot_id} {self._user_id}"
 
     @property
     def bot_id(self):

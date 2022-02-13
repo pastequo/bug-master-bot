@@ -59,7 +59,13 @@ class ApplyCommand(Command):
         tasks = []
 
         for message in messages:
-            if not message.get("text", "").startswith(consts.EVENT_FAILURE_PREFIX) or self._is_already_handled(message):
+            if not message.get("text", "").strip().startswith(consts.EVENT_FAILURE_PREFIX):
+                logger.debug(f"Skipping message due to it's not starting with {consts.EVENT_FAILURE_PREFIX} "
+                             f"{message['text']}")
+                continue
+
+            if self._is_already_handled(message):
+                logger.debug(f"Skipping message due to it was already handled\n{message}")
                 continue
 
             logger.info(f"Handling unhandled message {message}")
