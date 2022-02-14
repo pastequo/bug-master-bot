@@ -18,7 +18,7 @@ class HelpCommand(Command):
 
     @classmethod
     def get_commands_info(cls) -> str:
-        from .command_handler import SupportedCommands
+        from .supported_commands import SupportedCommands
 
         commands_map = SupportedCommands.get_commands_map()
         commands = list(commands_map.keys())
@@ -43,7 +43,7 @@ class HelpCommand(Command):
             f"*Available commands:*\n"
             f"```{self.get_commands_info()}```\n\n"
             f"*Configuration file:*\n"
-            f"Bot configuration file, a declarative yaml file that defines the channel actions for"
+            f"Bot configuration file, a declarative yaml file that defines the channel actions for "
             f"each job failure entry. The configuration file name must be named"
             f" `{consts.CONFIGURATION_FILE_NAME}`.\n"
             f"Each job failure must start with :red_jenkins_circle: emoji.\n"

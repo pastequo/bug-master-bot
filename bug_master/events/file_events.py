@@ -18,7 +18,7 @@ class FileShareEvent(Event):
         logger.info(f"Handling {self.type}, {self._subtype} event")
 
         if self.contain_files:
-            await self._bot.refresh_file_configuration(self._channel, self._data.get("files", []))
+            await self._bot.refresh_file_configuration(self._channel_id, self._data.get("files", []))
         return JSONResponse({"msg": "Success", "Code": 200})
 
 
@@ -37,7 +37,7 @@ class FileChangeEvent(Event):
     async def _update_channel_info(self):
         file_info = await self.get_file_info()
         channels = file_info.get("channels")
-        self._channel = channels[0]
+        self._channel_id = channels[0]
 
     async def get_channel_info(self):
         try:
@@ -49,6 +49,8 @@ class FileChangeEvent(Event):
     async def handle(self, **kwargs) -> Response:
         logger.info(f"Handling {self.type}, {self._subtype} event")
         file_info = await self.get_file_info()
+
         if file_info.get("title", "") == CONFIGURATION_FILE_NAME:
-            await self._bot.refresh_file_configuration(self._channel, [file_info])
+            await self._bot.refresh_file_configuration(self._channel_id, [file_info])
+
         return JSONResponse({"msg": "Success", "Code": 200})

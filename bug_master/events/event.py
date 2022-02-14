@@ -30,15 +30,15 @@ class Event(BaseEvent, ABC):
         super().__init__(body, bot)
         self._type = self._data.get("type", None)
         self._subtype = self._data.get("subtype", "")
-        self._channel = self._data.get("channel")
+        self._channel_id = self._data.get("channel")
 
     @property
-    def channel(self):
-        return self._channel
+    def channel_id(self):
+        return self._channel_id
 
     @property
     def type(self):
         return self._type
 
     async def get_channel_info(self):
-        return await self._bot.get_channel_info(self._channel)
+        return await self._bot.get_channel_info(self._channel_id)

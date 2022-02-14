@@ -1,4 +1,5 @@
 import re
+from contextlib import suppress
 from typing import List
 
 from loguru import logger
@@ -6,6 +7,7 @@ from starlette.responses import JSONResponse, Response
 
 from .. import consts
 from ..bug_master_bot import BugMasterBot
+from ..channel_config_handler import ChannelFileConfig
 from ..entities import Comment
 from ..models import MessageEvent
 from ..prow_job import ProwJobFailure
@@ -21,13 +23,13 @@ class MessageChannelEvent(Event):
 
     def __str__(self):
         return (
-            f"id: {self._event_id}, user: {self._user}, channel: {self._channel} ts: {self._ts},"
+            f"id: {self._event_id}, user: {self._user}, channel: {self._channel_id} ts: {self._ts},"
             f" has_file: {self.contain_files}"
         )
 
     @property
-    def channel(self) -> str:
-        return self._channel
+    def channel_id(self) -> str:
+        return self._channel_id
 
     @property
     def user(self) -> str:
@@ -47,10 +49,21 @@ class MessageChannelEvent(Event):
     def is_command_message(self):
         return self._text and self._text.startswith("/bugmaster")
 
-    async def handle(self, **kwargs) -> Response:
-        logger.info(f"Handling {self.type}, {self._subtype} event")
-        channel_name = kwargs.get("channel_info", {}).get("name", self.channel)
+    async def get_channel_configuration(self, channel_name: str) -> ChannelFileConfig:
+        if not self._bot.has_channel_configurations(self.channel_id):
+            await self._bot.try_load_configurations_from_history(self.channel_id)
 
+        if not self._bot.has_channel_configurations(self.channel_id):
+            await self._bot.add_comment(
+                self.channel_id,
+                f"BugMaster configuration file on channel `{channel_name}` is invalid or missing. "
+                "Please add or fix the configuration file or remove the bot.",
+            )
+            return None
+
+        return self._bot.get_configuration(self._channel_id)
+
+    def _neglect_event(self, channel_name: str):
         # ignore messages sent by bots or retries
         if self.is_self_event:
             logger.info(
@@ -63,36 +76,38 @@ class MessageChannelEvent(Event):
             logger.info(f"Ignoring messages that do not start with {consts.EVENT_FAILURE_PREFIX}")
             return JSONResponse({"msg": "Success", "Code": 200})
 
-        if not self._bot.has_channel_configurations(self.channel):
-            await self._bot.try_load_configurations_from_history(self.channel)
+        return None
 
-        if not self._bot.has_channel_configurations(self.channel):
-            await self._bot.add_comment(
-                self.channel,
-                f"BugMaster configuration file on channel `{channel_name}` is invalid or missing. "
-                "Please add or fix the configuration file or remove the bot.",
-            )
-            return JSONResponse({"msg": "Failure", "Code": 401})
+    async def handle(self, **kwargs) -> Response:
+        logger.info(f"Handling {self.type}, {self._subtype} event")
+        channel_name = kwargs.get("channel_info", {}).get("name", self.channel_id)
+
+        if (res := self._neglect_event(channel_name)) is not None:
+            return res
 
         logger.info(f"Handling event {self}")
-        configuration = self._bot.get_configuration(self._channel)
+        if (channel_config := await self.get_channel_configuration(channel_name)) is None:
+            return JSONResponse({"msg": "Failure", "Code": 401})
 
         links = self._get_links()
         for link in links:
             if not link.startswith(ProwJobFailure.MAIN_PAGE_URL):
                 logger.info(f"Skipping comment url {link}")
                 continue
-            try:
-                pj = await ProwJobFailure(link).load()
-                emojis, comments = await pj.get_failure_actions(self._channel, configuration)
-                logger.debug(f"Adding comments={','.join([c.text for c in comments])} and emojis={emojis}")
-                await self.add_reactions(emojis)
-                await self.add_comments(comments)
-                self.add_record(pj)
-            except IndexError:
-                continue
+
+            await self._handle_failure_link(link, channel_config)
 
         return JSONResponse({"msg": "Success", "Code": 200})
+
+    async def _handle_failure_link(self, link: str, channel_config: ChannelFileConfig):
+        with suppress(IndexError):
+            pj = await ProwJobFailure(link).load()
+            emojis, comments = await pj.get_failure_actions(self._channel_id, channel_config)
+
+            logger.debug(f"Adding comments={','.join([c.text for c in comments])} and emojis={emojis}")
+            await self.add_reactions(emojis)
+            await self.add_comments(comments)
+            self.add_record(pj)
 
     def add_record(self, job_failure: ProwJobFailure):
         MessageEvent.create(
@@ -101,18 +116,18 @@ class MessageChannelEvent(Event):
             user=self._user,
             thread_ts=self._ts,
             url=job_failure.url,
-            channel_id=self._channel,
+            channel_id=self._channel_id,
         )
 
     async def add_reactions(self, emojis: List[str]):
         for emoji in emojis:
-            logger.debug(f"Adding reactions to channel {self._channel} for ts {self._ts}")
-            await self._bot.add_reaction(self._channel, emoji, self._ts)
+            logger.debug(f"Adding reactions to channel {self._channel_id} for ts {self._ts}")
+            await self._bot.add_reaction(self._channel_id, emoji, self._ts)
 
     async def add_comments(self, comments: List[Comment]):
         for comment in sorted(comments, key=lambda c: c.type.value):
-            logger.debug(f"Adding comment in channel {self._channel} for ts {self._ts}")
-            await self._bot.add_comment(self._channel, comment.text, self._ts, comment.parse)
+            logger.debug(f"Adding comment in channel {self._channel_id} for ts {self._ts}")
+            await self._bot.add_comment(self._channel_id, comment.text, self._ts, comment.parse)
 
     def _get_links(self) -> List[str]:
         urls = list()

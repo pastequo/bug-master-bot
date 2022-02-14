@@ -1,12 +1,11 @@
 from .event import Event
-from .event_handler import EventHandler, NotEventError, NotSupportedEventError, SupportedEvents
+from .event_handler import EventHandler, NotEventError
+from .supported_events import SupportedEvents, NotSupportedEventError
 from .url_verification_event import UrlVerificationEvent
 
 __all__ = [
     "Event",
     "EventHandler",
-    "SupportedEvents",
     "NotEventError",
-    "NotSupportedEventError",
     "UrlVerificationEvent",
 ]

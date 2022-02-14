@@ -46,11 +46,8 @@ class BugMasterBot:
     def name(self):
         return self._name
 
-    def get_loop(self) -> asyncio.AbstractEventLoop:
-        return self._loop
-
-    def has_channel_configurations(self, channel: str):
-        return channel in self._config
+    def has_channel_configurations(self, channel_id: str):
+        return channel_id in self._config
 
     async def add_reaction(self, channel: str, emoji: str, ts: str) -> AsyncSlackResponse:
         try:

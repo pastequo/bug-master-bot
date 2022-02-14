@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, re
+from typing import Any, Dict, List, Union
 
 import aiohttp
 import yaml
@@ -44,7 +44,7 @@ class BaseChannelConfig:
         return cls._config_schema
 
     @classmethod
-    def validate_configurations(cls, content: List[Dict[str, Any]]):
+    def validate_configurations(cls, content: Dict[str, Any]):
         try:
             cls._config_schema.validate(content)
             return True
@@ -99,14 +99,13 @@ class ChannelFileConfig(BaseChannelConfig):
     def assignees_items(self):
         return self._assignees.get("data", []).__iter__()
 
-    async def load(self, bot_token: str) -> "ChannelFileConfig":
+    async def _get_file_content(self, bot_token: str) -> Union[dict, None]:
         content = {}
-        headers = {"Authorization": "Bearer %s" % bot_token}
 
-        async with aiohttp.ClientSession(headers=headers) as session:
+        async with aiohttp.ClientSession(headers={"Authorization": "Bearer %s" % bot_token}) as session:
             async with session.get(self._url) as resp:
                 if not resp.status == 200:
-                    return self
+                    return content
 
                 raw_content = await resp.text()
 
@@ -117,7 +116,12 @@ class ChannelFileConfig(BaseChannelConfig):
             else:
                 logger.warning("Invalid configuration file found")
 
-            self.validate_configurations(content)
-            self._assignees = content.get("assignees", {})
-            self._actions = content.get("actions")
-            return self
+        return content
+
+    async def load(self, bot_token: str) -> "ChannelFileConfig":
+        content = await self._get_file_content(bot_token)
+
+        self.validate_configurations(content)
+        self._assignees = content.get("assignees", {})
+        self._actions = content.get("actions")
+        return self
