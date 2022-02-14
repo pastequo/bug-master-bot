@@ -1,6 +1,6 @@
 import asyncio
 from asyncio import AbstractEventLoop
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Tuple
 
 import slack_sdk
 from schema import SchemaError
@@ -31,6 +31,10 @@ class BugMasterBot:
         return f"{self._name}:{self._bot_id} {self._user_id}"
 
     @property
+    def _web_client(self):
+        return self._sm_client.web_client
+
+    @property
     def bot_id(self):
         return self._bot_id
 
@@ -50,7 +54,7 @@ class BugMasterBot:
 
     async def add_reaction(self, channel: str, emoji: str, ts: str) -> AsyncSlackResponse:
         try:
-            return await self._sm_client.web_client.reactions_add(channel=channel, name=emoji, timestamp=ts)
+            return await self._web_client.reactions_add(channel=channel, name=emoji, timestamp=ts)
         except slack_sdk.errors.SlackApiError as e:
             if e.response.data.get("error") == "invalid_name":
                 logger.warning(f"Invalid configuration on channel {channel}. {e}, reaction={emoji}")
@@ -60,9 +64,7 @@ class BugMasterBot:
             raise
 
     async def add_comment(self, channel: str, comment: str, ts: str = None, parse: str = "none") -> AsyncSlackResponse:
-        return await self._sm_client.web_client.chat_postMessage(
-            channel=channel, text=comment, thread_ts=ts, parse=parse
-        )
+        return await self._web_client.chat_postMessage(channel=channel, text=comment, thread_ts=ts, parse=parse)
 
     def get_configuration(self, channel: str) -> Union[ChannelFileConfig, None]:
         return self._config.get(channel, None)
@@ -116,7 +118,7 @@ class BugMasterBot:
         return self
 
     def _update_bot_info(self):
-        info = self._loop.run_until_complete(self._sm_client.web_client.auth_test()).data
+        info = self._loop.run_until_complete(self._web_client.auth_test()).data
         if info.get("ok", False):
             self._bot_id = info.get("bot_id")
             self._user_id = info.get("user_id")
@@ -126,18 +128,18 @@ class BugMasterBot:
             logger.warning("Can't auth bot web_client")
 
     async def try_load_configurations_from_history(self, channel: str) -> bool:
-        res = await self._sm_client.web_client.files_list(channel=channel, types=ChannelFileConfig.SUPPORTED_FILETYPE)
+        res = await self._web_client.files_list(channel=channel, types=ChannelFileConfig.SUPPORTED_FILETYPE)
         is_conf_valid = await self.refresh_file_configuration(channel, res.data.get("files", []), from_history=True)
         if is_conf_valid:
             logger.info(f"Configurations loaded successfully from channel history for channel {channel}")
         return is_conf_valid
 
     async def get_file_info(self, file_id: str) -> dict:
-        res = await self._sm_client.web_client.files_info(file=file_id)
+        res = await self._web_client.files_info(file=file_id)
         return res.data.get("file")
 
     async def get_channel_info(self, channel_id: str) -> dict:
-        res = await self._sm_client.web_client.conversations_info(channel=channel_id)
+        res = await self._web_client.conversations_info(channel=channel_id)
         channel_info = res.get("channel", None)
 
         if not channel_info:
@@ -153,6 +155,6 @@ class BugMasterBot:
 
         return channel_info
 
-    async def get_last_messages(self, channel_id: str, messages_count: int) -> List[dict]:
-        res = await self._sm_client.web_client.conversations_history(channel=channel_id, limit=messages_count)
-        return res.data.get("messages", [])
+    async def get_messages(self, channel_id: str, messages_count: int, cursor: str = None) -> Tuple[List[dict], str]:
+        res = await self._web_client.conversations_history(channel=channel_id, limit=messages_count, cursor=cursor)
+        return res.data.get("messages", []), res.data.get("response_metadata", {}).get("next_cursor")

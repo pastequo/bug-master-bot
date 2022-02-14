@@ -44,7 +44,7 @@ class ApplyCommand(Command):
             return self.get_response(
                 f"Invalid number of messages to read, got `{self._command_args[0]}`. Positive integer is required."
             )
-        messages = await self._bot.get_last_messages(self._channel_id, messages_count)
+        messages, _cursor = await self._bot.get_messages(self._channel_id, messages_count)
         logger.info(f"Got {len(messages)} form channel {self._channel_id}:{self._channel_name}, creating task ...")
         self._task = asyncio.get_event_loop().create_task(self.update_task(messages))
         return self.get_response(
