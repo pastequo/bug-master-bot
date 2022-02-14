@@ -1,10 +1,10 @@
 from typing import Type, Union
 
 from ..bug_master_bot import BugMasterBot
+from .apply_command import ApplyCommand
 from .channel_configuration_command import ChannelConfigurationCommand
 from .command import Command
 from .help_command import HelpCommand
-from .apply_command import ApplyCommand
 from .statistics_command import StatisticsCommand
 
 

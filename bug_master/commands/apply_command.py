@@ -42,8 +42,10 @@ class ApplyCommand(Command):
         messages = await self._bot.get_last_messages(self._channel_id, messages_count)
         logger.info(f"Got {len(messages)} form channel {self._channel_id}:{self._channel_name}, creating task ...")
         self._task = asyncio.get_event_loop().create_task(self.update_task(messages))
-        return self.get_response(f"Updating process is in progress, this might take a few minutes to finish.\n"
-                                 f"`Messages loaded from history: {len(messages)}`")
+        return self.get_response(
+            f"Updating process is in progress, this might take a few minutes to finish.\n"
+            f"`Messages loaded from history: {len(messages)}`"
+        )
 
     def _is_already_handled(self, message: dict) -> bool:
         for reaction in message.get("reactions", []):
@@ -60,8 +62,10 @@ class ApplyCommand(Command):
 
         for message in messages:
             if not message.get("text", "").strip().startswith(consts.EVENT_FAILURE_PREFIX):
-                logger.debug(f"Skipping message due to it's not starting with {consts.EVENT_FAILURE_PREFIX} "
-                             f"{message['text']}")
+                logger.debug(
+                    f"Skipping message due to it's not starting with {consts.EVENT_FAILURE_PREFIX} "
+                    f"{message['text']}"
+                )
                 continue
 
             if self._is_already_handled(message):
@@ -95,5 +99,6 @@ class ApplyCommand(Command):
                 break
             await asyncio.sleep(2)
 
-        logger.info(f"Finished background task for handling {len(messages)} messages. "
-                    f"Total actions needed {len(tasks)}.")
+        logger.info(
+            f"Finished background task for handling {len(messages)} messages. " f"Total actions needed {len(tasks)}."
+        )

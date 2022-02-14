@@ -48,6 +48,9 @@ class EventHandler:
             raise NotEventError("Can't find event in given body")
 
         event = body.get("event")
+        if event.get("thread_ts"):
+            raise NotSupportedEventError("Event of type thread comment is not supported")
+
         event_type = event.get("type", None), event.get("subtype", "")
         if event_type not in SupportedEvents.get_events_map().keys():
             raise NotSupportedEventError(f"Event of type {event_type} is not supported")

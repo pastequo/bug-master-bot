@@ -6,6 +6,8 @@ import yaml
 from loguru import logger
 from schema import Optional, Or, Schema, SchemaError
 
+from bug_master import consts
+
 
 class BaseChannelConfig:
     _config_schema = Schema(
@@ -23,6 +25,11 @@ class BaseChannelConfig:
                     Optional("file_path"): str,
                     Optional("job_name"): str,
                     Optional("conditions"): [{Optional("contains"): str, Optional("file_path"): str}],
+                    Optional("assignees"): {
+                        Optional("disable_auto_assign"): bool,
+                        Optional("issue_url"): str,
+                        "users": [str],
+                    },
                 }
             ],
         }
@@ -30,7 +37,7 @@ class BaseChannelConfig:
 
     def __init__(self):
         self._actions: List[dict] = []
-        self._assignees: List[dict] = []
+        self._assignees: dict = {}
 
     @classmethod
     def validate_configurations(cls, content: List[Dict[str, Any]]):
@@ -64,7 +71,9 @@ class ChannelFileConfig(BaseChannelConfig):
 
     @property
     def disable_auto_assign(self):
-        return self._assignees.get("disable_auto_assign", False) if self._assignees else False
+        return (
+            self._assignees.get("disable_auto_assign", consts.DISABLE_AUTO_ASSIGN_DEFAULT) if self._assignees else False
+        )
 
     @property
     def name(self):
@@ -105,6 +114,6 @@ class ChannelFileConfig(BaseChannelConfig):
                 logger.warning("Invalid configuration file found")
 
             self.validate_configurations(content)
-            self._assignees = content.get("assignees")
+            self._assignees = content.get("assignees", {})
             self._actions = content.get("actions")
             return self
