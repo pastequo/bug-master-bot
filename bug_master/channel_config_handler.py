@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, re
 
 import aiohttp
 import yaml
@@ -38,6 +38,10 @@ class BaseChannelConfig:
     def __init__(self):
         self._actions: List[dict] = []
         self._assignees: dict = {}
+
+    @classmethod
+    def get_config_schema(cls) -> Schema:
+        return cls._config_schema
 
     @classmethod
     def validate_configurations(cls, content: List[Dict[str, Any]]):

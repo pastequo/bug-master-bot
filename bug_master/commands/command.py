@@ -1,6 +1,6 @@
 import re
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 from starlette.responses import JSONResponse, Response
 
@@ -31,6 +31,11 @@ class Command(ABC):
     @classmethod
     @abstractmethod
     def get_description(cls) -> str:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def get_arguments_info(cls) -> Dict[str, str]:
         pass
 
     @abstractmethod

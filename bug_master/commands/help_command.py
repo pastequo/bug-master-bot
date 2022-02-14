@@ -1,3 +1,5 @@
+from typing import Dict
+
 from loguru import logger
 from starlette.responses import Response
 
@@ -6,6 +8,10 @@ from .command import Command
 
 
 class HelpCommand(Command):
+    @classmethod
+    def get_arguments_info(cls) -> Dict[str, str]:
+        return {}
+
     @classmethod
     def get_description(cls) -> str:
         return "More information about how to use Bot Master"
@@ -17,10 +23,17 @@ class HelpCommand(Command):
         commands_map = SupportedCommands.get_commands_map()
         commands = list(commands_map.keys())
         commands_cls = list(commands_map.values())
-        commands_info = "\n".join(
-            [f"{i + 1}. {commands[i]} - {commands_cls[i].get_description()}" for i in range(len(commands))]
-        )
-        return commands_info
+        commands_info = []
+
+        for i in range(len(commands)):
+            command_str = [f"{i + 1}. {commands[i]} - {commands_cls[i].get_description()}"]
+
+            for argument, arg_info in commands_cls[i].get_arguments_info().items():
+                command_str += [f"\t{u'•'} {argument}: {arg_info}"]
+
+            commands_info.append("\n".join(command_str))
+
+        return "\n".join(commands_info)
 
     async def handle(self) -> Response:
         logger.info(f"Handling {self._command}")

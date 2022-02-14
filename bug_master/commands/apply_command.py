@@ -1,5 +1,5 @@
 import asyncio
-from typing import List
+from typing import List, Dict
 
 from loguru import logger
 from starlette.responses import Response
@@ -19,8 +19,13 @@ class ApplyCommand(Command):
         self._task = None
 
     @classmethod
+    def get_arguments_info(cls) -> Dict[str, str]:
+        return {"<messages>": "A positive number that represent the amount of messages to apply on. "
+                              f"/bugmaster apply <messages> (default={cls.DEFAULT_HISTORY_MESSAGES_TO_READ})."}
+
+    @classmethod
     def get_description(cls) -> str:
-        return "Apply BugMasterBot logic on n (default=20) last channel messages"
+        return "Apply BugMasterBot logic on n last channel messages"
 
     def _get_messages_count(self):
         if not self._command_args or not self._command_args[0]:
