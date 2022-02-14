@@ -2,7 +2,11 @@ from typing import Tuple, Type, Union
 
 from ..bug_master_bot import BugMasterBot
 from ..consts import logger
-from .event import ChannelJoinEvent, Event, FileChangeEvent, FileShareEvent, MessageChannelEvent, UrlVerificationEvent
+from .channel_join_event import ChannelJoinEvent
+from .event import Event
+from .file_events import FileChangeEvent, FileShareEvent
+from .message_channel_event import MessageChannelEvent
+from .url_verification_event import UrlVerificationEvent
 
 
 class NotEventError(Exception):

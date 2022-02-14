@@ -23,19 +23,27 @@ class BugMasterBot:
         self._loop = loop or asyncio.get_event_loop()
         self._bot_token = bot_token
         self._config: Dict[str, ChannelFileConfig] = {}
-        self._id = None
+        self._bot_id = None
+        self._user_id = None
         self._name = None
 
     def __str__(self):
-        return f"{self._name}:{self._id}"
+        return f"{self._name}:{self._bot_id} {self._user_id}"
 
     @property
-    def id(self):
-        return self._id
+    def bot_id(self):
+        return self._bot_id
+
+    @property
+    def user_id(self):
+        return self._user_id
 
     @property
     def name(self):
         return self._name
+
+    def get_loop(self) -> asyncio.AbstractEventLoop:
+        return self._loop
 
     def has_channel_configurations(self, channel: str):
         return channel in self._config
@@ -110,7 +118,8 @@ class BugMasterBot:
     def _update_bot_info(self):
         info = self._loop.run_until_complete(self._sm_client.web_client.auth_test()).data
         if info.get("ok", False):
-            self._id = info.get("bot_id")
+            self._bot_id = info.get("bot_id")
+            self._user_id = info.get("user_id")
             self._name = info.get("user")
             logger.info(f"Bot authentication complete - {self}")
         else:
@@ -143,3 +152,7 @@ class BugMasterBot:
             channel.update_last_seen()
 
         return channel_info
+
+    async def get_last_messages(self, channel_id: str, messages_count: int) -> List[dict]:
+        res = await self._sm_client.web_client.conversations_history(channel=channel_id, limit=messages_count)
+        return res.data.get("messages", [])

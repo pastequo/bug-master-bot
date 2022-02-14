@@ -1,4 +1,5 @@
-from .command import Command, GetChannelConfigurationCommand, NotSupportedCommandError
-from .command_handler import CommandHandler
+from .channel_configuration_command import ChannelConfigurationCommand
+from .command import Command
+from .command_handler import CommandHandler, NotSupportedCommandError
 
-__all__ = ["Command", "GetChannelConfigurationCommand", "CommandHandler", "NotSupportedCommandError"]
+__all__ = ["Command", "CommandHandler"]

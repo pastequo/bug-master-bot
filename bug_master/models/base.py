@@ -3,9 +3,8 @@ from typing import Union
 
 from sqlalchemy.exc import PendingRollbackError
 
-from bug_master.database import Base
-
 from ..consts import logger
+from ..database import Base
 
 
 class BaseModule(Base):

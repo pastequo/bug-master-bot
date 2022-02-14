@@ -1,43 +1,86 @@
-import re
-from typing import List, Optional, Set, Tuple
+import json
+from dataclasses import dataclass
+from typing import List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin
 
 import aiohttp
 from bs4 import BeautifulSoup, element
 
-from bug_master.channel_config_handler import ChannelFileConfig
-from bug_master.entities import Comment, CommentType
+from .channel_config_handler import ChannelFileConfig
+from .consts import logger
+from .entities import Comment, CommentType
+
+
+@dataclass
+class ProwResource:
+    full_name: str
+    build_id: str
+    org: str
+    repo: str
+    branch: str
+    variant: str = ""
+    __name: str = ""
+
+    @classmethod
+    def get_prow_resource(cls, resource: dict) -> "ProwResource":
+        labels = resource.get("metadata", {}).get("labels", {})
+        spec = resource.get("spec", {})
+        full_name = spec.get("job")
+        organization = labels.get("prow.k8s.io/refs.org", "")
+        branch = labels.get("prow.k8s.io/refs.base_ref", "")
+        repo = labels.get("prow.k8s.io/refs.repo", "")
+        build_id = labels.get("prow.k8s.io/build-id", "")
+        variant = ""
+
+        container_args = spec.get("pod_spec", {}).get("containers", [{}])[0].get("args", [])
+        for k, v in [a.replace("--", "").split("=") for a in container_args]:
+            if k == "variant":
+                variant = v
+                break
+
+        return ProwResource(full_name, build_id, organization, repo, branch, variant)
+
+    @property
+    def name(self):
+        if self.__name:
+            return self.__name
+
+        prefix = f"periodic-ci-{self.org}-{self.repo}-{self.branch}-{self.variant + '-' if self.variant else ''}"
+        self.__name = self.full_name.replace(prefix, "")
+        return self.__name
 
 
 class ProwJobFailure:
     BASE_STORAGE_URL = "https://storage.googleapis.com/origin-ci-test/logs/"
+    MAIN_PAGE_URL = "https://prow.ci.openshift.org/view/gs/origin-ci-test/logs"
     DIRS_STORAGE_URL = "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/origin-ci-test/logs/"
-    JOB_PREFIX = "periodic-ci-openshift-assisted-test-infra-master-"
     MIN_FILE_SIZE = 4
 
     def __init__(self, failure_link: str) -> None:
+        """Initialization in this object is asynchronous - tot create new ProwResource call:
+        prow_resources = await ProwResource(link).load()
+        """
         self._raw_link = failure_link
-        self._job_full_name, self._job_name, self.job_id = self._get_job_data(failure_link)
-        self._storage_link = urljoin(urljoin(self.BASE_STORAGE_URL, self._job_full_name), f"{self.job_id}/")
+        self._storage_link = ""
+        self._resource: Optional[ProwResource] = None
 
     @property
     def url(self):
         return self._raw_link
 
     @property
-    def name(self):
-        return self._job_name
+    def job_name(self):
+        return self._resource.name
 
-    @classmethod
-    def _get_job_data(cls, link: str):
-        job_full_name, job_id = re.findall(r"logs/(.*?)/(\d{15,22})", link).pop()
-        job_full_name = job_full_name if job_full_name.endswith("/") else job_full_name + "/"
-        job_name = re.findall(r"(e2e-.*?)[\s|/]", job_full_name).pop()
-        return job_full_name, job_name, job_id
+    @property
+    def build_id(self):
+        return self._resource.build_id
 
-    async def get_content(self, file_path: str, storage_link=None):
+    async def get_content(self, file_path: str, storage_link=None) -> Union[str, None]:
         if storage_link is None:
             storage_link = self._storage_link
+
+        storage_link = storage_link + "/" if not storage_link.endswith("/") else storage_link
         async with aiohttp.ClientSession() as session:
             async with session.get(urljoin(storage_link, file_path)) as resp:
                 if resp.status == 200:
@@ -71,7 +114,7 @@ class ProwJobFailure:
         reactions, comments = set(), set()
         reaction = comment = None
 
-        if "job_name" in config_entry and self._job_name.startswith(config_entry.get("job_name")):
+        if "job_name" in config_entry and self.build_id.startswith(config_entry.get("job_name")):
             reaction, comment = config_entry.get("emoji"), config_entry.get("text")
 
         elif file_path.endswith("*"):
@@ -86,10 +129,26 @@ class ProwJobFailure:
 
         return reactions, comments
 
-    async def get_failure_actions(self, bot_config: ChannelFileConfig) -> Tuple[List[str], List[Comment]]:
+    async def get_failure_actions(
+        self, channel: str, channel_config: ChannelFileConfig
+    ) -> Tuple[List[str], List[Comment]]:
+        comments, reactions = await self._get_job_actions(channel_config)
+
+        if channel_config.disable_auto_assign:
+            logger.info(
+                f"Skipping automatic assign for {channel} due to that `disable_auto_assign` flag was set to True"
+            )
+            return list(reactions), list(comments)
+
+        self._append_assignees_comments(channel_config, comments)
+
+        return list(reactions), list(comments)
+
+    async def _get_job_actions(self, channel_config: ChannelFileConfig) -> Tuple[Set[Comment], Set[str]]:
         reactions = set()
         comments = set()
-        for action in bot_config.actions_items():
+
+        for action in channel_config.actions_items():
             conditions = action.get(
                 "conditions", [{"contains": action.get("contains", ""), "file_path": action.get("file_path", "")}]
             )
@@ -101,8 +160,11 @@ class ProwJobFailure:
                     comments.add(Comment(text=comment, type=CommentType.ERROR_INFO))
                 reactions.update(result_reactions)
 
-        for assignees in bot_config.assignees_items():
-            if self._job_name.startswith(assignees["job_name"]):
+        return comments, reactions
+
+    def _append_assignees_comments(self, channel_config: ChannelFileConfig, comments: Set[Comment]):
+        for assignees in channel_config.assignees_items():
+            if self.job_name.startswith(assignees["job_name"]):
                 username = " ".join([f"@{username}" for username in assignees["users"]])
 
                 link_comment = ""
@@ -111,21 +173,30 @@ class ProwJobFailure:
                     parse="full",
                     type=CommentType.ASSIGNEE,
                 )
-                if bot_config.assignees_issue_url:
+                if channel_config.assignees_issue_url:
                     link_comment = Comment(
-                        text=f"See <{bot_config.assignees_issue_url}|link> for more information",
+                        text=f"See <{channel_config.assignees_issue_url}|link> for more information",
                         type=CommentType.MORE_INFO,
                     )
 
                 comments.update([comment, link_comment]) if link_comment else comments.update([comment])
                 break
 
-        return list(reactions), list(comments)
-
     async def format_and_update_actions(
         self, file_path: str, contains: str, config_entry: dict
     ) -> Tuple[Set[str], Set[str]]:
         if "{job_name}" in file_path:
-            file_path = file_path.format(job_name=self._job_name)
+            file_path = file_path.format(job_name=self.build_id)
 
         return await self._update_actions(file_path, contains, config_entry)
+
+    async def load(self):
+        url = self._raw_link.replace(self.MAIN_PAGE_URL, self.BASE_STORAGE_URL)
+        job_raw_resource = await self.get_content("prowjob.json", url)
+        if not job_raw_resource:
+            return None
+
+        resource = ProwResource.get_prow_resource(json.loads(job_raw_resource))
+        self._storage_link = urljoin(urljoin(self.BASE_STORAGE_URL, resource.full_name + "/"), f"{resource.build_id}/")
+        self._resource = resource
+        return self
