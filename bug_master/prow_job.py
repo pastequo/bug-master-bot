@@ -116,7 +116,10 @@ class ProwJobFailure:
         reaction = comment = None
         is_applied = False
 
-        if "job_name" in config_entry and self.job_name.startswith(config_entry.get("job_name")):
+        if ("job_name" in config_entry and (
+                self.job_name.startswith(config_entry.get("job_name")) or
+                self._resource.full_name.startswith(config_entry.get("job_name"))
+        )):
             reaction, comment = config_entry.get("emoji"), config_entry.get("text")
             is_applied = True
 
