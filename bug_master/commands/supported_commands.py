@@ -1,5 +1,5 @@
-from .channel_configuration_command import ChannelConfigurationCommand
 from .apply_command import ApplyCommand
+from .channel_configuration_command import ChannelConfigurationCommand
 from .help_command import HelpCommand
 from .statistics_command import StatisticsCommand
 

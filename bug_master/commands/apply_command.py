@@ -1,5 +1,5 @@
 import asyncio
-from typing import List, Dict
+from typing import Dict, List
 
 from loguru import logger
 from starlette.responses import Response
@@ -20,8 +20,10 @@ class ApplyCommand(Command):
 
     @classmethod
     def get_arguments_info(cls) -> Dict[str, str]:
-        return {"<messages>": "A positive number that represent the amount of messages to apply on. "
-                              f"/bugmaster apply <messages> (default={cls.DEFAULT_HISTORY_MESSAGES_TO_READ})."}
+        return {
+            "<messages>": "A positive number that represent the amount of messages to apply on. "
+            f"/bugmaster apply <messages> (default={cls.DEFAULT_HISTORY_MESSAGES_TO_READ})."
+        }
 
     @classmethod
     def get_description(cls) -> str:

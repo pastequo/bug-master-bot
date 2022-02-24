@@ -1,13 +1,12 @@
-import json
-from typing import List, Dict
+from typing import Dict
 
 import yaml
 from loguru import logger
 from starlette.responses import Response
 
 from .. import consts
-from .command import Command
 from ..channel_config_handler import BaseChannelConfig
+from .command import Command
 
 
 class ChannelConfigurationCommand(Command):

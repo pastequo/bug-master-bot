@@ -1,7 +1,7 @@
-from .url_verification_event import UrlVerificationEvent
 from .channel_join_event import ChannelJoinEvent
-from .file_events import FileShareEvent, FileChangeEvent, FileDeletedEvent
+from .file_events import FileChangeEvent, FileDeletedEvent, FileShareEvent
 from .message_channel_event import MessageChannelEvent
+from .url_verification_event import UrlVerificationEvent
 
 
 class SupportedEvents:

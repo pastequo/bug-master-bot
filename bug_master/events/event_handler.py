@@ -1,9 +1,9 @@
 from typing import Tuple, Type, Union
 
-from .supported_events import SupportedEvents, NotSupportedEventError
 from ..bug_master_bot import BugMasterBot
 from ..consts import logger
 from .event import Event
+from .supported_events import NotSupportedEventError, SupportedEvents
 
 
 class NotEventError(Exception):

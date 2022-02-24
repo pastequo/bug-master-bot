@@ -1,6 +1,6 @@
 import datetime
 from collections import Counter
-from typing import Tuple, Dict
+from typing import Dict, Tuple
 
 from loguru import logger
 from starlette.responses import Response
@@ -20,14 +20,14 @@ class StatisticsCommand(Command):
 
     @classmethod
     def get_arguments_info(cls) -> Dict[str, str]:
-        return {"<days>": "A positive number that represent the days to query by. "
-                          f"/bugmaster stats <days> (default={cls.DEFAULT_STAT_HISTORY})."}
+        return {
+            "<days>": "A positive number that represent the days to query by. "
+            f"/bugmaster stats <days> (default={cls.DEFAULT_STAT_HISTORY})."
+        }
 
     @classmethod
     def get_description(cls) -> str:
-        return (
-            f"Print statics of last x days"
-        )
+        return "Print statics of last x days"
 
     def get_stats(self, days: int) -> Tuple[str, int]:
         counter = Counter()

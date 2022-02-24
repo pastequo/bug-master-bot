@@ -3,4 +3,4 @@ from .command import Command
 from .command_handler import CommandHandler
 from .supported_commands import NotSupportedCommandError
 
-__all__ = ["Command", "CommandHandler", "ChannelConfigurationCommand"]
+__all__ = ["Command", "CommandHandler", "ChannelConfigurationCommand", "NotSupportedCommandError"]
