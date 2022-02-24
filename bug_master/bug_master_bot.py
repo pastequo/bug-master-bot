@@ -1,6 +1,6 @@
 import asyncio
 from asyncio import AbstractEventLoop
-from typing import Dict, List, Union, Tuple
+from typing import Dict, List, Tuple, Union
 
 import slack_sdk
 from schema import SchemaError
@@ -66,22 +66,29 @@ class BugMasterBot:
     def get_configuration(self, channel: str) -> Union[ChannelFileConfig, None]:
         return self._config.get(channel, None)
 
-    def _get_file_configuration(self, channel: str, files: list = None) -> ChannelFileConfig:
-        if channel not in self._config:
+    def reset_configuration(self, channel: str):
+        del self._config[channel]
+
+    def _get_file_configuration(
+        self, channel: str, files: list = None, force_create: bool = False
+    ) -> ChannelFileConfig:
+        if force_create or channel not in self._config:
             return ChannelFileConfig(files[0] if files else [])
         return self._config[channel]
 
-    async def refresh_file_configuration(self, channel: str, files: List[dict], from_history=False) -> bool:
+    async def refresh_file_configuration(
+        self, channel: str, files: List[dict], from_history=False, force_create=False
+    ) -> bool:
         res = False
-        files = [
+        sorted_files = [
             f
-            for f in sorted(files, key=lambda f: f["timestamp"])
+            for f in sorted(files, key=lambda f: f["timestamp"], reverse=True)
             if f["title"].startswith(consts.CONFIGURATION_FILE_NAME)
         ]
-        if not files:
+        if not sorted_files:
             return res
         logger.info("Attempting to refresh configuration file")
-        bmc = self._get_file_configuration(channel, files)
+        bmc = self._get_file_configuration(channel, sorted_files, force_create)
         self._config[channel] = bmc
 
         try:
