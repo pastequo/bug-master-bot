@@ -60,7 +60,7 @@ class FileDeletedEvent(Event):
     def __init__(self, body: dict, bot: BugMasterBot) -> None:
         super().__init__(body, bot)
         self._channels = set(self._data.get("channel_ids"))
-        self._channel_id = list(self._channels)[0]
+        self._channel_id = list(self._channels)[0] if len(self._channels) > 0 else ""
         self._file_id = self._data.get("file_id")
 
     async def handle(self, **kwargs) -> Response:

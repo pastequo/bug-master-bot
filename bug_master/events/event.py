@@ -32,6 +32,9 @@ class Event(BaseEvent, ABC):
         self._subtype = self._data.get("subtype", "")
         self._channel_id = self._data.get("channel")
 
+    def __str__(self):
+        return f"{self._type}:{self._subtype} {self._channel_id}"
+
     @property
     def channel_id(self):
         return self._channel_id
@@ -41,4 +44,7 @@ class Event(BaseEvent, ABC):
         return self._type
 
     async def get_channel_info(self):
+        if not self._channel_id:
+            return None
+
         return await self._bot.get_channel_info(self._channel_id)
