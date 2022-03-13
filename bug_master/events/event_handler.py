@@ -2,37 +2,12 @@ from typing import Tuple, Type, Union
 
 from ..bug_master_bot import BugMasterBot
 from ..consts import logger
-from .channel_join_event import ChannelJoinEvent
 from .event import Event
-from .file_events import FileChangeEvent, FileShareEvent
-from .message_channel_event import MessageChannelEvent
-from .url_verification_event import UrlVerificationEvent
+from .supported_events import NotSupportedEventError, SupportedEvents
 
 
 class NotEventError(Exception):
     pass
-
-
-class NotSupportedEventError(Exception):
-    pass
-
-
-class SupportedEvents:
-    MESSAGE_TYPE = "message"
-    URL_VERIFICATION = "url_verification"
-    CHANNEL_JOIN_SUBTYPE = "channel_join"
-    FILE_SHARE_SUBTYPE = "file_share"
-    FILE_CHANGED_EVENT = "file_change"
-
-    @classmethod
-    def get_events_map(cls):
-        return {
-            (cls.MESSAGE_TYPE, ""): MessageChannelEvent,
-            (cls.URL_VERIFICATION, ""): UrlVerificationEvent,
-            (cls.MESSAGE_TYPE, cls.FILE_SHARE_SUBTYPE): FileShareEvent,
-            (cls.MESSAGE_TYPE, cls.CHANNEL_JOIN_SUBTYPE): ChannelJoinEvent,
-            (cls.FILE_CHANGED_EVENT, ""): FileChangeEvent,
-        }
 
 
 class EventHandler:
@@ -48,6 +23,9 @@ class EventHandler:
             raise NotEventError("Can't find event in given body")
 
         event = body.get("event")
+        if event.get("thread_ts"):
+            raise NotSupportedEventError("Event of type thread comment is not supported")
+
         event_type = event.get("type", None), event.get("subtype", "")
         if event_type not in SupportedEvents.get_events_map().keys():
             raise NotSupportedEventError(f"Event of type {event_type} is not supported")

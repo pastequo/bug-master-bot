@@ -6,6 +6,7 @@ from urllib.parse import urljoin
 import aiohttp
 from bs4 import BeautifulSoup, element
 
+from . import consts
 from .channel_config_handler import ChannelFileConfig
 from .consts import logger
 from .entities import Comment, CommentType
@@ -110,24 +111,63 @@ class ProwJobFailure:
                 return result.get("emoji"), result.get("text")
         return None, None
 
-    async def _update_actions(self, file_path: str, contains: str, config_entry: dict) -> Tuple[Set[str], Set[str]]:
-        reactions, comments = set(), set()
+    async def _update_actions(self, file_path: str, contains: str, config_entry: dict) -> Tuple[Set[str], Set[Comment]]:
+        comments, reactions, raw_comments = set(), set(), set()
         reaction = comment = None
+        is_applied = False
 
-        if "job_name" in config_entry and self.build_id.startswith(config_entry.get("job_name")):
+        if "job_name" in config_entry and (
+            self.job_name.startswith(config_entry.get("job_name"))
+            or self._resource.full_name.startswith(config_entry.get("job_name"))
+        ):
             reaction, comment = config_entry.get("emoji"), config_entry.get("text")
+            is_applied = True
 
         elif file_path.endswith("*"):
             reaction, comment = await self.glob(file_path, config_entry)
+            if reaction or comment:
+                is_applied = True
         else:
             content = await self.get_content(file_path)
             if contains and contains in content:
                 reaction, comment = config_entry.get("emoji"), config_entry.get("text")
+                is_applied = True
 
         reactions.add(reaction) if reaction else None
-        comments.add(comment) if comment else None
+        raw_comments.add(comment) if comment else None
+
+        for comment in raw_comments:
+            comments.add(Comment(text=comment, type=CommentType.ERROR_INFO, parse="full"))
+
+        if is_applied and "assignees" in config_entry:
+            for action in self._apply_assignee_actions(config_entry):
+                comments.add(action)
 
         return reactions, comments
+
+    @classmethod
+    def _apply_assignee_actions(cls, config_entry: dict) -> List[Comment]:
+        link_comment = None
+        if "assignees" not in config_entry:
+            return []
+
+        assignee = config_entry.get("assignees")
+        disable_auto_assign = assignee.get("disable_auto_assign", consts.DISABLE_AUTO_ASSIGN_DEFAULT)
+        issue_url = assignee.get("issue_url", None)
+        users = " ".join([f"@{username}" for username in assignee["users"]])
+
+        if disable_auto_assign:
+            return []
+
+        comment = Comment(
+            text=f"{users} You have been automatically assigned to investigate this job failure",
+            parse="full",
+            type=CommentType.ASSIGNEE,
+        )
+        if issue_url:
+            link_comment = Comment(text=f"See <{issue_url}|link> for more information", type=CommentType.MORE_INFO)
+
+        return [comment, link_comment] if link_comment else [comment]
 
     async def get_failure_actions(
         self, channel: str, channel_config: ChannelFileConfig
@@ -144,6 +184,11 @@ class ProwJobFailure:
 
         return list(reactions), list(comments)
 
+    @classmethod
+    def _join_comments(cls, comments: Set[Comment]) -> Comment:
+        comment_text = "\n".join([comment.text for comment in sorted(comments, key=lambda c: c.type.value)])
+        return Comment(text=comment_text, type=CommentType.ERROR_INFO, parse="all")
+
     async def _get_job_actions(self, channel_config: ChannelFileConfig) -> Tuple[Set[Comment], Set[str]]:
         reactions = set()
         comments = set()
@@ -156,35 +201,38 @@ class ProwJobFailure:
                 result_reactions, result_comments = await self.format_and_update_actions(
                     **condition, config_entry=action
                 )
+
                 for comment in result_comments:
-                    comments.add(Comment(text=comment, type=CommentType.ERROR_INFO))
+                    comments.add(comment)
                 reactions.update(result_reactions)
 
         return comments, reactions
 
     def _append_assignees_comments(self, channel_config: ChannelFileConfig, comments: Set[Comment]):
-        for assignees in channel_config.assignees_items():
-            if self.job_name.startswith(assignees["job_name"]):
-                username = " ".join([f"@{username}" for username in assignees["users"]])
+        for assignee in channel_config.assignees_items():
+            self._append_assignees_comment(assignee, channel_config, comments)
 
-                link_comment = ""
-                comment = Comment(
-                    text=f"{username} You have been automatically assigned to investigate this job failure",
-                    parse="full",
-                    type=CommentType.ASSIGNEE,
+    def _append_assignees_comment(self, assignee: dict, channel_config: ChannelFileConfig, comments: Set[Comment]):
+        if self.job_name.startswith(assignee["job_name"]):
+            username = " ".join([f"@{username}" for username in assignee["users"]])
+
+            link_comment = ""
+            comment = Comment(
+                text=f"{username} You have been automatically assigned to investigate this job failure",
+                parse="full",
+                type=CommentType.ASSIGNEE,
+            )
+            if channel_config.assignees_issue_url:
+                link_comment = Comment(
+                    text=f"See <{channel_config.assignees_issue_url}|link> for more information",
+                    type=CommentType.MORE_INFO,
                 )
-                if channel_config.assignees_issue_url:
-                    link_comment = Comment(
-                        text=f"See <{channel_config.assignees_issue_url}|link> for more information",
-                        type=CommentType.MORE_INFO,
-                    )
 
-                comments.update([comment, link_comment]) if link_comment else comments.update([comment])
-                break
+            comments.update([comment, link_comment]) if link_comment else comments.update([comment])
 
     async def format_and_update_actions(
         self, file_path: str, contains: str, config_entry: dict
-    ) -> Tuple[Set[str], Set[str]]:
+    ) -> Tuple[Set[str], Set[Comment]]:
         if "{job_name}" in file_path:
             file_path = file_path.format(job_name=self.build_id)
 

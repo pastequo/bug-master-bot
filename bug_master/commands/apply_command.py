@@ -1,5 +1,5 @@
 import asyncio
-from typing import List
+from typing import Dict, List
 
 from loguru import logger
 from starlette.responses import Response
@@ -19,8 +19,15 @@ class ApplyCommand(Command):
         self._task = None
 
     @classmethod
+    def get_arguments_info(cls) -> Dict[str, str]:
+        return {
+            "<messages>": "A positive number that represent the amount of messages to apply on. "
+            f"/bugmaster apply <messages> (default={cls.DEFAULT_HISTORY_MESSAGES_TO_READ})."
+        }
+
+    @classmethod
     def get_description(cls) -> str:
-        return "Apply BugMasterBot logic on n (default=20) last channel messages"
+        return "Apply BugMasterBot logic on n last channel messages"
 
     def _get_messages_count(self):
         if not self._command_args or not self._command_args[0]:
@@ -39,11 +46,13 @@ class ApplyCommand(Command):
             return self.get_response(
                 f"Invalid number of messages to read, got `{self._command_args[0]}`. Positive integer is required."
             )
-        messages = await self._bot.get_last_messages(self._channel_id, messages_count)
+        messages, _cursor = await self._bot.get_messages(self._channel_id, messages_count)
         logger.info(f"Got {len(messages)} form channel {self._channel_id}:{self._channel_name}, creating task ...")
         self._task = asyncio.get_event_loop().create_task(self.update_task(messages))
-        return self.get_response(f"Updating process is in progress, this might take a few minutes to finish.\n"
-                                 f"`Messages loaded from history: {len(messages)}`")
+        return self.get_response(
+            f"Updating process is in progress, this might take a few minutes to finish.\n"
+            f"`Messages loaded from history: {len(messages)}`"
+        )
 
     def _is_already_handled(self, message: dict) -> bool:
         for reaction in message.get("reactions", []):
@@ -60,8 +69,10 @@ class ApplyCommand(Command):
 
         for message in messages:
             if not message.get("text", "").strip().startswith(consts.EVENT_FAILURE_PREFIX):
-                logger.debug(f"Skipping message due to it's not starting with {consts.EVENT_FAILURE_PREFIX} "
-                             f"{message['text']}")
+                logger.debug(
+                    f"Skipping message due to it's not starting with {consts.EVENT_FAILURE_PREFIX} "
+                    f"{message['text']}"
+                )
                 continue
 
             if self._is_already_handled(message):
@@ -95,5 +106,6 @@ class ApplyCommand(Command):
                 break
             await asyncio.sleep(2)
 
-        logger.info(f"Finished background task for handling {len(messages)} messages. "
-                    f"Total actions needed {len(tasks)}.")
+        logger.info(
+            f"Finished background task for handling {len(messages)} messages. " f"Total actions needed {len(tasks)}."
+        )

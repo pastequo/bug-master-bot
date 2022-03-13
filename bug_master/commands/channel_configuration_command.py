@@ -1,7 +1,11 @@
+from typing import Dict
+
+import yaml
 from loguru import logger
 from starlette.responses import Response
 
 from .. import consts
+from ..channel_config_handler import BaseChannelConfig
 from .command import Command
 
 
@@ -10,9 +14,7 @@ class ChannelConfigurationCommand(Command):
     def get_description(cls) -> str:
         return "Get the last updated configurations file in the channel."
 
-    async def handle(self) -> Response:
-        logger.info(f"Handling {self._command}")
-
+    async def get_configuration_link(self):
         channel_config = self._bot.get_configuration(self._channel_id)
         if not channel_config:
             logger.info(f"Attempting to load configurations for channel `{self._channel_id}:{self._channel_name}`")
@@ -26,3 +28,20 @@ class ChannelConfigurationCommand(Command):
             )
 
         return self.get_response(f"Current channel configuration - <{channel_config.permalink} | link>")
+
+    def get_config_schema(self) -> Response:
+        schema = BaseChannelConfig.get_config_schema()
+        json_schema = {k: v for k, v in schema.json_schema(self._channel_id).items() if not k.startswith("$")}
+        return self.get_response(f"```{yaml.dump(json_schema, indent=2)}```")
+
+    async def handle(self) -> Response:
+        logger.info(f"Handling {self._command}")
+
+        if self._command_args and self._command_args[0] == "schema":
+            return self.get_config_schema()
+
+        return await self.get_configuration_link()
+
+    @classmethod
+    def get_arguments_info(cls) -> Dict[str, str]:
+        return {"schema": "Get the configurations schema in yaml format. /bugmaster config schema"}
