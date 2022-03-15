@@ -78,14 +78,20 @@ class ProwJobFailure:
         return self._resource.build_id
 
     async def get_content(self, file_path: str, storage_link=None) -> Union[str, None]:
+        logger.debug(f"Get file content from {file_path} with base storage link {storage_link}")
         if storage_link is None:
             storage_link = self._storage_link
 
         storage_link = storage_link + "/" if not storage_link.endswith("/") else storage_link
+        full_file_url = urljoin(storage_link, file_path)
+        logger.info(f"Opening a session to {full_file_url} ...")
         async with aiohttp.ClientSession() as session:
-            async with session.get(urljoin(storage_link, file_path)) as resp:
+            async with session.get(full_file_url) as resp:
                 if resp.status == 200:
                     return await resp.text()
+                else:
+                    logger.warning(f"Failed to load file data file is missing of invalid URL {full_file_url}. "
+                                   f"Returned status {resp.status}")
 
         return None
 
@@ -129,6 +135,9 @@ class ProwJobFailure:
                 is_applied = True
         else:
             content = await self.get_content(file_path)
+            if content is None:
+                return reactions, comments
+
             if contains and contains in content:
                 reaction, comment = config_entry.get("emoji"), config_entry.get("text")
                 is_applied = True
