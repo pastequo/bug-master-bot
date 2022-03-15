@@ -26,6 +26,7 @@ class FileChangeEvent(Event):
     def __init__(self, body: dict, bot: BugMasterBot) -> None:
         super().__init__(body, bot)
         self._file_id = self._data.get("file_id")
+        self._user_id = self._data.get("user_id")
         self._file_info = {}
 
     async def get_file_info(self):
@@ -51,7 +52,7 @@ class FileChangeEvent(Event):
         file_info = await self.get_file_info()
 
         if file_info.get("title", "") == CONFIGURATION_FILE_NAME:
-            await self._bot.refresh_file_configuration(self._channel_id, [file_info])
+            await self._bot.refresh_file_configuration(self._channel_id, [file_info], user_id=self._user_id)
 
         return JSONResponse({"msg": "Success", "Code": 200})
 
