@@ -22,7 +22,7 @@ class SignatureVerifier(_signature.SignatureVerifier):
             return False
 
         now = self.clock.now()
-        if abs(now - int(timestamp)) > 60 * 10:
+        if abs(now - int(timestamp)) > 60 * 20:
             logger.warning(f"Signature verifier failed to validate timestamp diff={abs(now - int(timestamp))}")
             return False
 
