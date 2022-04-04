@@ -5,6 +5,7 @@ import aiohttp
 import yaml
 from loguru import logger
 from schema import Optional, Or, Schema, SchemaError
+from yaml.scanner import ScannerError
 
 from bug_master import consts
 
@@ -110,7 +111,11 @@ class ChannelFileConfig(BaseChannelConfig):
                 raw_content = await resp.text()
 
             if self._filetype == "yaml":
+                # try:
                 content = yaml.safe_load(raw_content)
+                # except ScannerError:
+                #     # TODO send message to the user
+                #     pass
             elif self._filetype == "json":
                 content = json.loads(raw_content)
             else:

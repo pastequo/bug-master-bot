@@ -21,11 +21,14 @@ class SignatureVerifier(_signature.SignatureVerifier):
         if timestamp is None or signature is None:
             return False
 
-        if abs(self.clock.now() - int(timestamp)) > 60 * 10:
+        now = self.clock.now()
+        if abs(now - int(timestamp)) > 60 * 20:
+            logger.warning(f"Signature verifier failed to validate timestamp diff={abs(now - int(timestamp))}")
             return False
 
         calculated_signature = self.generate_signature(timestamp=timestamp, body=body)
         if calculated_signature is None:
+            logger.warning("Signature verifier failed to validate due to invalid calculated_signature (None)")
             return False
         return hmac.compare_digest(calculated_signature, signature)
 

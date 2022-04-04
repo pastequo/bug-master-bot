@@ -9,6 +9,7 @@ from slack_sdk.errors import SlackApiError
 from slack_sdk.socket_mode.aiohttp import SocketModeClient
 from slack_sdk.web.async_client import AsyncWebClient
 from slack_sdk.web.async_slack_response import AsyncSlackResponse
+from yaml.scanner import ScannerError
 
 from . import consts
 from .channel_config_handler import ChannelFileConfig
@@ -70,14 +71,14 @@ class BugMasterBot:
         del self._config[channel]
 
     def _get_file_configuration(
-        self, channel: str, files: list = None, force_create: bool = False
+            self, channel: str, files: list = None, force_create: bool = False
     ) -> ChannelFileConfig:
         if force_create or channel not in self._config:
             return ChannelFileConfig(files[0] if files else [])
         return self._config[channel]
 
     async def refresh_file_configuration(
-        self, channel: str, files: List[dict], from_history=False, force_create=False
+            self, channel: str, files: List[dict], from_history=False, force_create=False, user_id: str = None
     ) -> bool:
         res = False
         sorted_files = [
@@ -95,10 +96,15 @@ class BugMasterBot:
             await bmc.load(self._bot_token)
             res = True
             logger.info(f"Configuration file loaded successfully with {len(self._config[channel])} entries")
-        except SchemaError:
+        except (SchemaError, ScannerError) as e:
             # if not from_history:
             self._config[channel] = bmc
             await self.add_comment(channel, "BugMasterBot configuration file is invalid")
+            if user_id:
+                await self.add_comment(user_id, f"BugMasterBot configuration file is invalid. "
+                                                f"Full error ({e.__class__.__name__}) message: "
+                                                f"```{str(e).replace('`', '')}```")
+
             return False
 
         if not from_history:
