@@ -79,7 +79,6 @@ class ProwJobFailure:
 
     async def get_content(self, file_path: str, storage_link=None) -> Union[str, None]:
         if not file_path:
-            logger.info("Missing action file_path")
             return None
 
         logger.debug(f"Get file content from {file_path} with base storage link {storage_link}")
@@ -157,7 +156,7 @@ class ProwJobFailure:
             actions.append(action)
 
         if is_applied and "assignees" in config_entry:
-            actions += self._apply_assignee_actions(config_entry)
+            actions += self._apply_assignee_actions(config_entry)  # assignee inside action
 
         return actions
 

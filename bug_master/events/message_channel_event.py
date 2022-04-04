@@ -103,11 +103,12 @@ class MessageChannelEvent(Event):
         with suppress(IndexError):
             pj = await ProwJobFailure(link).load()
             actions = await pj.get_failure_actions(self._channel_id, channel_config)
+            ignore_others = len([action for action in actions if action.ignore_others]) > 0
 
             logger.debug(f"Adding comments={[action.comment for action in actions]}")
             logger.debug(f"Adding reactions={[action.reaction for action in actions]}")
-            await self.add_reactions([action for action in actions if action.reaction])
-            await self.add_comments([action for action in actions if action.comment])
+            await self.add_reactions([action for action in actions if action.reaction], ignore_others)
+            await self.add_comments([action for action in actions if action.comment], ignore_others)
             self.add_record(pj)
 
     def add_record(self, job_failure: ProwJobFailure):
@@ -121,17 +122,19 @@ class MessageChannelEvent(Event):
         )
 
     @classmethod
-    def filter_ignore_others(cls, actions: List[Action]):
+    def filter_ignore_others(cls, actions: List[Action], ignore_others: bool = False):
         prioritized = [action for action in actions if action.ignore_others]
-        return prioritized if prioritized else actions
+        return prioritized if ignore_others else actions
 
-    async def add_reactions(self, actions: List[Action]):
-        for action in self.filter_ignore_others(actions):
+    async def add_reactions(self, actions: List[Action], ignore_others: bool = False):
+        for action in self.filter_ignore_others(actions, ignore_others):
             logger.debug(f"Adding reactions to channel {self._channel_id} for ts {self._ts}")
             await self._bot.add_reaction(self._channel_id, action.reaction.emoji, self._ts)
 
-    async def add_comments(self, actions: List[Action]):
-        for action in sorted(self.filter_ignore_others(actions), key=lambda a: a.comment.type.value, reverse=True):
+    async def add_comments(self, actions: List[Action], ignore_others: bool = False):
+        for action in sorted(
+            self.filter_ignore_others(actions, ignore_others), key=lambda a: a.comment.type.value, reverse=True
+        ):
             logger.debug(f"Adding comment in channel {self._channel_id} for ts {self._ts}")
             await self._bot.add_comment(self._channel_id, action.comment.text, self._ts, action.comment.parse)
 
