@@ -5,7 +5,6 @@ import aiohttp
 import yaml
 from loguru import logger
 from schema import Optional, Or, Schema, SchemaError
-from yaml.scanner import ScannerError
 
 from bug_master import consts
 
@@ -25,6 +24,7 @@ class BaseChannelConfig:
                     Optional("contains"): str,
                     Optional("file_path"): str,
                     Optional("job_name"): str,
+                    Optional("ignore_others"): bool,
                     Optional("conditions"): [{Optional("contains"): str, Optional("file_path"): str}],
                     Optional("assignees"): {
                         Optional("disable_auto_assign"): bool,

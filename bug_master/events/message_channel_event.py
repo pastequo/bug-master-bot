@@ -8,7 +8,7 @@ from starlette.responses import JSONResponse, Response
 from .. import consts
 from ..bug_master_bot import BugMasterBot
 from ..channel_config_handler import ChannelFileConfig
-from ..entities import Comment
+from ..entities import Action
 from ..models import MessageEvent
 from ..prow_job import ProwJobFailure
 from .event import Event
@@ -102,11 +102,12 @@ class MessageChannelEvent(Event):
     async def _handle_failure_link(self, link: str, channel_config: ChannelFileConfig):
         with suppress(IndexError):
             pj = await ProwJobFailure(link).load()
-            emojis, comments = await pj.get_failure_actions(self._channel_id, channel_config)
+            actions = await pj.get_failure_actions(self._channel_id, channel_config)
 
-            logger.debug(f"Adding comments={','.join([c.text for c in comments])} and emojis={emojis}")
-            await self.add_reactions(emojis)
-            await self.add_comments(comments)
+            logger.debug(f"Adding comments={[action.comment for action in actions]}")
+            logger.debug(f"Adding reactions={[action.reaction for action in actions]}")
+            await self.add_reactions([action for action in actions if action.reaction])
+            await self.add_comments([action for action in actions if action.comment])
             self.add_record(pj)
 
     def add_record(self, job_failure: ProwJobFailure):
@@ -119,15 +120,20 @@ class MessageChannelEvent(Event):
             channel_id=self._channel_id,
         )
 
-    async def add_reactions(self, emojis: List[str]):
-        for emoji in emojis:
-            logger.debug(f"Adding reactions to channel {self._channel_id} for ts {self._ts}")
-            await self._bot.add_reaction(self._channel_id, emoji, self._ts)
+    @classmethod
+    def filter_ignore_others(cls, actions: List[Action]):
+        prioritized = [action for action in actions if action.ignore_others]
+        return prioritized if prioritized else actions
 
-    async def add_comments(self, comments: List[Comment]):
-        for comment in sorted(comments, key=lambda c: c.type.value):
+    async def add_reactions(self, actions: List[Action]):
+        for action in self.filter_ignore_others(actions):
+            logger.debug(f"Adding reactions to channel {self._channel_id} for ts {self._ts}")
+            await self._bot.add_reaction(self._channel_id, action.reaction.emoji, self._ts)
+
+    async def add_comments(self, actions: List[Action]):
+        for action in sorted(self.filter_ignore_others(actions), key=lambda a: a.comment.type.value, reverse=True):
             logger.debug(f"Adding comment in channel {self._channel_id} for ts {self._ts}")
-            await self._bot.add_comment(self._channel_id, comment.text, self._ts, comment.parse)
+            await self._bot.add_comment(self._channel_id, action.comment.text, self._ts, action.comment.parse)
 
     def _get_links(self) -> List[str]:
         urls = list()

@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup, element
 from . import consts
 from .channel_config_handler import ChannelFileConfig
 from .consts import logger
-from .entities import Comment, CommentType
+from .entities import Action, Comment, CommentType, Reaction
 
 
 @dataclass
@@ -78,6 +78,10 @@ class ProwJobFailure:
         return self._resource.build_id
 
     async def get_content(self, file_path: str, storage_link=None) -> Union[str, None]:
+        if not file_path:
+            logger.info("Missing action file_path")
+            return None
+
         logger.debug(f"Get file content from {file_path} with base storage link {storage_link}")
         if storage_link is None:
             storage_link = self._storage_link
@@ -90,8 +94,10 @@ class ProwJobFailure:
                 if resp.status == 200:
                     return await resp.text()
                 else:
-                    logger.warning(f"Failed to load file data file is missing of invalid URL {full_file_url}. "
-                                   f"Returned status {resp.status}")
+                    logger.warning(
+                        f"Failed to load file data file is missing of invalid URL {full_file_url}. "
+                        f"Returned status {resp.status}"
+                    )
 
         return None
 
@@ -117,10 +123,12 @@ class ProwJobFailure:
                 return result.get("emoji"), result.get("text")
         return None, None
 
-    async def _update_actions(self, file_path: str, contains: str, config_entry: dict) -> Tuple[Set[str], Set[Comment]]:
-        comments, reactions, raw_comments = set(), set(), set()
+    async def _update_actions(
+        self, file_path: str, contains: str, config_entry: dict, ignore_others: bool
+    ) -> List[Action]:
         reaction = comment = None
         is_applied = False
+        actions = list()
 
         if "job_name" in config_entry and (
             self.job_name.startswith(config_entry.get("job_name"))
@@ -136,26 +144,25 @@ class ProwJobFailure:
         else:
             content = await self.get_content(file_path)
             if content is None:
-                return reactions, comments
+                return actions
 
             if contains and contains in content:
                 reaction, comment = config_entry.get("emoji"), config_entry.get("text")
                 is_applied = True
 
-        reactions.add(reaction) if reaction else None
-        raw_comments.add(comment) if comment else None
-
-        for comment in raw_comments:
-            comments.add(Comment(text=comment, type=CommentType.ERROR_INFO, parse="full"))
+        if reaction or comment:
+            action = Action(ignore_others=ignore_others)
+            action.reaction = Reaction(emoji=reaction) if reaction else None
+            action.comment = Comment(text=comment, type=CommentType.ERROR_INFO, parse="full") if comment else None
+            actions.append(action)
 
         if is_applied and "assignees" in config_entry:
-            for action in self._apply_assignee_actions(config_entry):
-                comments.add(action)
+            actions += self._apply_assignee_actions(config_entry)
 
-        return reactions, comments
+        return actions
 
     @classmethod
-    def _apply_assignee_actions(cls, config_entry: dict) -> List[Comment]:
+    def _apply_assignee_actions(cls, config_entry: dict) -> List[Action]:
         link_comment = None
         if "assignees" not in config_entry:
             return []
@@ -173,55 +180,53 @@ class ProwJobFailure:
             parse="full",
             type=CommentType.ASSIGNEE,
         )
+
         if issue_url:
             link_comment = Comment(text=f"See <{issue_url}|link> for more information", type=CommentType.MORE_INFO)
 
-        return [comment, link_comment] if link_comment else [comment]
+        return [Action(comment=comment), Action(comment=link_comment)] if link_comment else [Action(comment=comment)]
 
-    async def get_failure_actions(
-        self, channel: str, channel_config: ChannelFileConfig
-    ) -> Tuple[List[str], List[Comment]]:
-        comments, reactions = await self._get_job_actions(channel_config)
+    async def get_failure_actions(self, channel: str, channel_config: ChannelFileConfig) -> List[Action]:
+        actions = await self._get_job_actions(channel_config)
 
         if channel_config.disable_auto_assign:
             logger.info(
                 f"Skipping automatic assign for {channel} due to that `disable_auto_assign` flag was set to True"
             )
-            return list(reactions), list(comments)
+            return actions
 
-        self._append_assignees_comments(channel_config, comments)
+        self._append_assignees_comments(channel_config, actions)
 
-        return list(reactions), list(comments)
+        return actions
 
     @classmethod
     def _join_comments(cls, comments: Set[Comment]) -> Comment:
         comment_text = "\n".join([comment.text for comment in sorted(comments, key=lambda c: c.type.value)])
         return Comment(text=comment_text, type=CommentType.ERROR_INFO, parse="all")
 
-    async def _get_job_actions(self, channel_config: ChannelFileConfig) -> Tuple[Set[Comment], Set[str]]:
-        reactions = set()
-        comments = set()
+    async def _get_job_actions(self, channel_config: ChannelFileConfig) -> List[Action]:
+        actions = list()
 
-        for action in channel_config.actions_items():
-            conditions = action.get(
-                "conditions", [{"contains": action.get("contains", ""), "file_path": action.get("file_path", "")}]
+        for action_data in channel_config.actions_items():
+            ignore_others = action_data.get("ignore_others", None)
+
+            conditions = action_data.get(
+                "conditions",
+                [{"contains": action_data.get("contains", ""), "file_path": action_data.get("file_path", "")}],
             )
+
             for condition in conditions:
-                result_reactions, result_comments = await self.format_and_update_actions(
-                    **condition, config_entry=action
+                actions += await self.format_and_update_actions(
+                    **condition, config_entry=action_data, ignore_others=ignore_others
                 )
 
-                for comment in result_comments:
-                    comments.add(comment)
-                reactions.update(result_reactions)
+        return actions
 
-        return comments, reactions
-
-    def _append_assignees_comments(self, channel_config: ChannelFileConfig, comments: Set[Comment]):
+    def _append_assignees_comments(self, channel_config: ChannelFileConfig, actions: List[Action]):
         for assignee in channel_config.assignees_items():
-            self._append_assignees_comment(assignee, channel_config, comments)
+            self._append_assignees_comment(assignee, channel_config, actions)
 
-    def _append_assignees_comment(self, assignee: dict, channel_config: ChannelFileConfig, comments: Set[Comment]):
+    def _append_assignees_comment(self, assignee: dict, channel_config: ChannelFileConfig, actions: List[Action]):
         if self.job_name.startswith(assignee["job_name"]):
             username = " ".join([f"@{username}" for username in assignee["users"]])
 
@@ -236,16 +241,16 @@ class ProwJobFailure:
                     text=f"See <{channel_config.assignees_issue_url}|link> for more information",
                     type=CommentType.MORE_INFO,
                 )
-
-            comments.update([comment, link_comment]) if link_comment else comments.update([comment])
+            actions.append(Action(comment=comment))
+            actions.append(Action(comment=link_comment)) if link_comment else None
 
     async def format_and_update_actions(
-        self, file_path: str, contains: str, config_entry: dict
-    ) -> Tuple[Set[str], Set[Comment]]:
+        self, file_path: str, contains: str, config_entry: dict, ignore_others: bool
+    ) -> List[Action]:
         if "{job_name}" in file_path:
             file_path = file_path.format(job_name=self.build_id)
 
-        return await self._update_actions(file_path, contains, config_entry)
+        return await self._update_actions(file_path, contains, config_entry, ignore_others)
 
     async def load(self):
         url = self._raw_link.replace(self.MAIN_PAGE_URL, self.BASE_STORAGE_URL)
