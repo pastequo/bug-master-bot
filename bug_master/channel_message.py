@@ -22,8 +22,16 @@ class ChannelMessage:
     def id(self):
         return self._ts
 
+    def is_bot_name_in_message(self):
+        if self._text and "bugmaster" in self._text.lower():
+            return True
+        return False
+
     def neglect_event(self, channel_name: str) -> bool:
         """ignore unwanted messages"""
+
+        if self.is_bot_name_in_message():
+            return False
 
         if not self._text or not self._text.replace(" ", "").startswith(consts.EVENT_FAILURE_PREFIX):
             logger.info(f"Ignoring messages that do not start with {consts.EVENT_FAILURE_PREFIX}")

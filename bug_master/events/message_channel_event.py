@@ -82,6 +82,10 @@ class MessageChannelEvent(Event):
         if await self.skip_event(channel_name):
             return JSONResponse({"msg": "Success", "Code": 200})
 
+        if self._message.is_bot_name_in_message():
+            await self._bot.add_reaction(self._channel_id, "sunglasses-dog", self._ts)
+            return JSONResponse({"msg": "Success", "Code": 200})
+
         logger.info(f"Handling event {self}")
         if (channel_config := await self._bot.get_channel_configuration(self._channel_id, channel_name)) is None:
             return JSONResponse({"msg": "Failure", "Code": 401})
