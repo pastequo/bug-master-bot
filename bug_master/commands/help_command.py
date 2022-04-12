@@ -26,6 +26,9 @@ class HelpCommand(Command):
         commands_info = []
 
         for i in range(len(commands)):
+            if not commands_cls[i].is_enabled():
+                continue
+
             command_str = [f"{i + 1}. {commands[i]} - {commands_cls[i].get_description()}"]
 
             for argument, arg_info in commands_cls[i].get_arguments_info().items():

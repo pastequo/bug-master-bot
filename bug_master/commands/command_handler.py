@@ -18,7 +18,8 @@ class CommandHandler:
                 command="",
             )
         command, _ = Command.get_command(body.get("text"))
-        if not command or command not in SupportedCommands.get_commands_map():
+        supported_commands = SupportedCommands.get_commands_map()
+        if not command or command not in supported_commands or not supported_commands.get(command).is_enabled():
             raise NotSupportedCommandError(
                 f"Command `{command}` is not supported. Available commands:\n"
                 f"```{HelpCommand.get_commands_info()}```",

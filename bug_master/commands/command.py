@@ -20,6 +20,10 @@ class Command(ABC):
         return f"{self._command}, {self._channel_name}"
 
     @classmethod
+    def is_enabled(cls):
+        return True
+
+    @classmethod
     def get_command(cls, text: str) -> Tuple[str, List[str]]:
         code_blocks = re.findall(r"```(\n|-[\s\S]*?)```$", text)
         if code_blocks:
