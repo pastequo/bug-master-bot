@@ -37,6 +37,9 @@ class Reaction:
 
 @dataclass
 class Action:
+    id: str
+    description: str
+    message_id: str
     comment: Comment = None
     reaction: Reaction = None
     ignore_others: bool = False

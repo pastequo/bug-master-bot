@@ -21,6 +21,7 @@ class BaseChannelConfig:
                 {
                     "description": str,
                     Or("emoji", "text"): str,
+                    Optional("action_id"): str,
                     Optional("contains"): str,
                     Optional("file_path"): str,
                     Optional("job_name"): str,
