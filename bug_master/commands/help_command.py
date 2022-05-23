@@ -25,16 +25,18 @@ class HelpCommand(Command):
         commands_cls = list(commands_map.values())
         commands_info = []
 
-        for i in range(len(commands)):
-            if not commands_cls[i].is_enabled():
+        i = 1
+        for cmd in commands_cls:
+            if not cmd.is_enabled():
                 continue
 
-            command_str = [f"{i + 1}. {commands[i]} - {commands_cls[i].get_description()}"]
+            command_str = [f"{i}. {cmd} - {cmd.get_description()}"]
 
-            for argument, arg_info in commands_cls[i].get_arguments_info().items():
+            for argument, arg_info in cmd.get_arguments_info().items():
                 command_str += [f"\t{u'•'} {argument}: {arg_info}"]
 
             commands_info.append("\n".join(command_str))
+            i += 1
 
         return "\n".join(commands_info)
 
