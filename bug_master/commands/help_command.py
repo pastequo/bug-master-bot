@@ -21,19 +21,25 @@ class HelpCommand(Command):
         from .supported_commands import SupportedCommands
 
         commands_map = SupportedCommands.get_commands_map()
-        commands = list(commands_map.keys())
-        commands_cls = list(commands_map.values())
         commands_info = []
 
-        for i in range(len(commands)):
-            command_str = [f"{i + 1}. {commands[i]} - {commands_cls[i].get_description()}"]
+        i = 1
+        for cmd, cmd_cls in commands_map.items():
+            if not cmd_cls.is_enabled():
+                continue
 
-            for argument, arg_info in commands_cls[i].get_arguments_info().items():
+            command_str = [f"{i}. {cmd} - {cmd_cls.get_description()}"]
+
+            for argument, arg_info in cmd_cls.get_arguments_info().items():
                 command_str += [f"\t{u'•'} {argument}: {arg_info}"]
 
             commands_info.append("\n".join(command_str))
+            i += 1
 
-        return "\n".join(commands_info)
+        disabled_commands = list(SupportedCommands.get_disabled_commands_map().keys())
+        disabled_commands_str = f"* Disabled Commands: {','.join(disabled_commands)}"
+
+        return "\n".join(commands_info) + f"\n{disabled_commands_str}"
 
     async def handle(self) -> Response:
         logger.info(f"Handling {self._command}")

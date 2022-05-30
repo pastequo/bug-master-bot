@@ -11,11 +11,17 @@ class Command(ABC):
     def __init__(self, bot: BugMasterBot, **kwargs) -> None:
         self._bot = bot
         self._channel_id = kwargs.get("channel_id")
+        self._user_id = kwargs.get("user_id")
+        self._user_name = kwargs.get("user_name")
         self._channel_name = kwargs.get("channel_name")
         self._command, self._command_args = self.get_command(kwargs.get("text"))
 
     def __str__(self):
         return f"{self._command}, {self._channel_name}"
+
+    @classmethod
+    def is_enabled(cls):
+        return True
 
     @classmethod
     def get_command(cls, text: str) -> Tuple[str, List[str]]:

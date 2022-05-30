@@ -19,6 +19,10 @@ class StatisticsCommand(Command):
         self._history_days = self._command_args[0] if self._command_args else self.DEFAULT_STAT_HISTORY
 
     @classmethod
+    def is_enabled(cls):
+        return False
+
+    @classmethod
     def get_arguments_info(cls) -> Dict[str, str]:
         return {
             "<days>": "A positive number that represent the days to query by. "

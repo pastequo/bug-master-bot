@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup, element
 from . import consts
 from .channel_config_handler import ChannelFileConfig
 from .consts import logger
-from .entities import Comment, CommentType
+from .entities import Action, Comment, CommentType, Reaction
 
 
 @dataclass
@@ -57,12 +57,13 @@ class ProwJobFailure:
     DIRS_STORAGE_URL = "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/origin-ci-test/logs/"
     MIN_FILE_SIZE = 4
 
-    def __init__(self, failure_link: str) -> None:
+    def __init__(self, failure_link: str, message_ts: str) -> None:
         """Initialization in this object is asynchronous - tot create new ProwResource call:
         prow_resources = await ProwResource(link).load()
         """
         self._raw_link = failure_link
         self._storage_link = ""
+        self._message_ts = message_ts
         self._resource: Optional[ProwResource] = None
 
     @property
@@ -78,6 +79,9 @@ class ProwJobFailure:
         return self._resource.build_id
 
     async def get_content(self, file_path: str, storage_link=None) -> Union[str, None]:
+        if not file_path:
+            return None
+
         logger.debug(f"Get file content from {file_path} with base storage link {storage_link}")
         if storage_link is None:
             storage_link = self._storage_link
@@ -90,8 +94,10 @@ class ProwJobFailure:
                 if resp.status == 200:
                     return await resp.text()
                 else:
-                    logger.warning(f"Failed to load file data file is missing of invalid URL {full_file_url}. "
-                                   f"Returned status {resp.status}")
+                    logger.warning(
+                        f"Failed to load file data file is missing of invalid URL {full_file_url}. "
+                        f"Returned status {resp.status}"
+                    )
 
         return None
 
@@ -117,10 +123,15 @@ class ProwJobFailure:
                 return result.get("emoji"), result.get("text")
         return None, None
 
-    async def _update_actions(self, file_path: str, contains: str, config_entry: dict) -> Tuple[Set[str], Set[Comment]]:
-        comments, reactions, raw_comments = set(), set(), set()
+    async def _update_actions(
+        self, file_path: str, contains: str, config_entry: dict, ignore_others: bool
+    ) -> List[Action]:
         reaction = comment = None
         is_applied = False
+        actions = list()
+
+        description = config_entry.get("description", "")
+        action_id = config_entry.get("action_id", None)
 
         if "job_name" in config_entry and (
             self.job_name.startswith(config_entry.get("job_name"))
@@ -136,26 +147,24 @@ class ProwJobFailure:
         else:
             content = await self.get_content(file_path)
             if content is None:
-                return reactions, comments
+                return actions
 
             if contains and contains in content:
                 reaction, comment = config_entry.get("emoji"), config_entry.get("text")
                 is_applied = True
 
-        reactions.add(reaction) if reaction else None
-        raw_comments.add(comment) if comment else None
-
-        for comment in raw_comments:
-            comments.add(Comment(text=comment, type=CommentType.ERROR_INFO, parse="full"))
+        if reaction or comment:
+            action = Action(action_id, description, self._message_ts, ignore_others=ignore_others)
+            action.reaction = Reaction(emoji=reaction) if reaction else None
+            action.comment = Comment(text=comment, type=CommentType.ERROR_INFO, parse="full") if comment else None
+            actions.append(action)
 
         if is_applied and "assignees" in config_entry:
-            for action in self._apply_assignee_actions(config_entry):
-                comments.add(action)
+            actions += self._apply_assignee_actions(config_entry, action_id, description)  # assignee inside action
 
-        return reactions, comments
+        return actions
 
-    @classmethod
-    def _apply_assignee_actions(cls, config_entry: dict) -> List[Comment]:
+    def _apply_assignee_actions(self, config_entry: dict, action_id: str, description: str) -> List[Action]:
         link_comment = None
         if "assignees" not in config_entry:
             return []
@@ -173,79 +182,68 @@ class ProwJobFailure:
             parse="full",
             type=CommentType.ASSIGNEE,
         )
+
         if issue_url:
             link_comment = Comment(text=f"See <{issue_url}|link> for more information", type=CommentType.MORE_INFO)
 
-        return [comment, link_comment] if link_comment else [comment]
+        action = Action(action_id, description, self._message_ts, comment=comment)
+        return (
+            [action, Action(action_id, description, self._message_ts, comment=link_comment)]
+            if link_comment
+            else [action]
+        )
 
     async def get_failure_actions(
-        self, channel: str, channel_config: ChannelFileConfig
-    ) -> Tuple[List[str], List[Comment]]:
-        comments, reactions = await self._get_job_actions(channel_config)
+        self, channel: str, channel_config: ChannelFileConfig, filter_id: str = None
+    ) -> List[Action]:
+        actions = await self._get_job_actions(channel_config, filter_id)
 
         if channel_config.disable_auto_assign:
             logger.info(
                 f"Skipping automatic assign for {channel} due to that `disable_auto_assign` flag was set to True"
             )
-            return list(reactions), list(comments)
+            return actions
 
-        self._append_assignees_comments(channel_config, comments)
-
-        return list(reactions), list(comments)
+        return actions
 
     @classmethod
     def _join_comments(cls, comments: Set[Comment]) -> Comment:
         comment_text = "\n".join([comment.text for comment in sorted(comments, key=lambda c: c.type.value)])
         return Comment(text=comment_text, type=CommentType.ERROR_INFO, parse="all")
 
-    async def _get_job_actions(self, channel_config: ChannelFileConfig) -> Tuple[Set[Comment], Set[str]]:
-        reactions = set()
-        comments = set()
+    async def _get_job_actions(self, channel_config: ChannelFileConfig, filter_id: str = None) -> List[Action]:
+        """
+        :param channel_config:
+        :param filter_id: Action filter id as defined in the configuration file
+        :return:
+        """
+        actions = list()
 
-        for action in channel_config.actions_items():
-            conditions = action.get(
-                "conditions", [{"contains": action.get("contains", ""), "file_path": action.get("file_path", "")}]
+        for action_data in channel_config.actions_items():
+            if filter_id and (action_data.get("action_id") is None or action_data.get("action_id") != filter_id):
+                continue
+
+            ignore_others = action_data.get("ignore_others", None)
+
+            conditions = action_data.get(
+                "conditions",
+                [{"contains": action_data.get("contains", ""), "file_path": action_data.get("file_path", "")}],
             )
+
             for condition in conditions:
-                result_reactions, result_comments = await self.format_and_update_actions(
-                    **condition, config_entry=action
+                actions += await self.format_and_update_actions(
+                    **condition, config_entry=action_data, ignore_others=ignore_others
                 )
 
-                for comment in result_comments:
-                    comments.add(comment)
-                reactions.update(result_reactions)
-
-        return comments, reactions
-
-    def _append_assignees_comments(self, channel_config: ChannelFileConfig, comments: Set[Comment]):
-        for assignee in channel_config.assignees_items():
-            self._append_assignees_comment(assignee, channel_config, comments)
-
-    def _append_assignees_comment(self, assignee: dict, channel_config: ChannelFileConfig, comments: Set[Comment]):
-        if self.job_name.startswith(assignee["job_name"]):
-            username = " ".join([f"@{username}" for username in assignee["users"]])
-
-            link_comment = ""
-            comment = Comment(
-                text=f"{username} You have been automatically assigned to investigate this job failure",
-                parse="full",
-                type=CommentType.ASSIGNEE,
-            )
-            if channel_config.assignees_issue_url:
-                link_comment = Comment(
-                    text=f"See <{channel_config.assignees_issue_url}|link> for more information",
-                    type=CommentType.MORE_INFO,
-                )
-
-            comments.update([comment, link_comment]) if link_comment else comments.update([comment])
+        return actions
 
     async def format_and_update_actions(
-        self, file_path: str, contains: str, config_entry: dict
-    ) -> Tuple[Set[str], Set[Comment]]:
+        self, file_path: str, contains: str, config_entry: dict, ignore_others: bool
+    ) -> List[Action]:
         if "{job_name}" in file_path:
             file_path = file_path.format(job_name=self.build_id)
 
-        return await self._update_actions(file_path, contains, config_entry)
+        return await self._update_actions(file_path, contains, config_entry, ignore_others)
 
     async def load(self):
         url = self._raw_link.replace(self.MAIN_PAGE_URL, self.BASE_STORAGE_URL)

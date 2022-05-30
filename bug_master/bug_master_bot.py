@@ -59,6 +59,9 @@ class BugMasterBot:
                 return await self.add_comment(
                     channel, f"Invalid reaction `:{emoji}:`." " Please check your configuration file", ts
                 )
+            if e.response.data.get("error") == "already_reacted":
+                logger.info(f"Ignoring duplicate reaction with emoji {emoji}")
+                return None
             raise
 
     async def add_comment(self, channel: str, comment: str, ts: str = None, parse: str = "none") -> AsyncSlackResponse:
@@ -71,14 +74,14 @@ class BugMasterBot:
         del self._config[channel]
 
     def _get_file_configuration(
-            self, channel: str, files: list = None, force_create: bool = False
+        self, channel: str, files: list = None, force_create: bool = False
     ) -> ChannelFileConfig:
         if force_create or channel not in self._config:
             return ChannelFileConfig(files[0] if files else [])
         return self._config[channel]
 
     async def refresh_file_configuration(
-            self, channel: str, files: List[dict], from_history=False, force_create=False, user_id: str = None
+        self, channel: str, files: List[dict], from_history=False, force_create=False, user_id: str = None
     ) -> bool:
         res = False
         sorted_files = [
@@ -101,9 +104,12 @@ class BugMasterBot:
             self._config[channel] = bmc
             await self.add_comment(channel, "BugMasterBot configuration file is invalid")
             if user_id:
-                await self.add_comment(user_id, f"BugMasterBot configuration file is invalid. "
-                                                f"Full error ({e.__class__.__name__}) message: "
-                                                f"```{str(e).replace('`', '')}```")
+                await self.add_comment(
+                    user_id,
+                    f"BugMasterBot configuration file is invalid. "
+                    f"Full error ({e.__class__.__name__}) message: "
+                    f"```{str(e).replace('`', '')}```",
+                )
 
             return False
 
@@ -165,6 +171,35 @@ class BugMasterBot:
 
         return channel_info
 
-    async def get_messages(self, channel_id: str, messages_count: int, cursor: str = None) -> Tuple[List[dict], str]:
-        res = await self._web_client.conversations_history(channel=channel_id, limit=messages_count, cursor=cursor)
+    async def get_messages(
+        self, channel_id: str, messages_count: int, cursor: str = None, oldest: float = 0
+    ) -> Tuple[List[dict], str]:
+        res = await self._web_client.conversations_history(
+            channel=channel_id, limit=messages_count, cursor=cursor, oldest=oldest
+        )
         return res.data.get("messages", []), res.data.get("response_metadata", {}).get("next_cursor")
+
+    async def get_all_messages(self, channel_id: str, since: float = 0):
+        messages = []
+        cursor = None
+        while True:
+            messages_chunk, cursor = await self.get_messages(channel_id, messages_count=20, cursor=cursor, oldest=since)
+            messages += messages_chunk
+            if cursor is None:
+                break
+
+        return messages
+
+    async def get_channel_configuration(self, channel_id: str, channel_name: str) -> ChannelFileConfig:
+        if not self.has_channel_configurations(channel_id):
+            await self.try_load_configurations_from_history(channel_id)
+
+        if not self.has_channel_configurations(channel_id):
+            await self.add_comment(
+                channel_id,
+                f"BugMaster configuration file on channel `{channel_name}` is invalid or missing. "
+                "Please add or fix the configuration file or remove the bot.",
+            )
+            return None
+
+        return self.get_configuration(channel_id)
