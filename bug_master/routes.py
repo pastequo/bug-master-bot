@@ -81,6 +81,7 @@ async def events(request: Request):
     if event is None:
         return response
 
+    logger.debug(f"Got new event - {event}")
     if not (channel_info := await event.get_channel_info()):
         logger.error(f"Invalid event {event}, {event._data}")
         return JSONResponse({"msg": "Failure", "Code": 401})

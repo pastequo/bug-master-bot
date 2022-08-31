@@ -71,7 +71,8 @@ class BugMasterBot:
         return self._config.get(channel, None)
 
     def reset_configuration(self, channel: str):
-        del self._config[channel]
+        if channel in self._config:
+            del self._config[channel]
 
     def _get_file_configuration(
         self, channel: str, files: list = None, force_create: bool = False
@@ -155,8 +156,13 @@ class BugMasterBot:
         return res.data.get("file")
 
     async def get_channel_info(self, channel_id: str) -> dict:
-        res = await self._web_client.conversations_info(channel=channel_id)
-        channel_info = res.get("channel", None)
+        channel_info = None
+
+        try:
+            res = await self._web_client.conversations_info(channel=channel_id)
+            channel_info = res.get("channel", None)
+        except SlackApiError as e:
+            logger.error(e)
 
         if not channel_info:
             return {}
