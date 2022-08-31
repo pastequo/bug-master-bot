@@ -2,6 +2,8 @@ import logging
 
 import uvicorn
 from fastapi import FastAPI
+from starlette.requests import Request
+from starlette.responses import Response
 from uvicorn_loguru_integration import run_uvicorn_loguru
 
 from . import consts
@@ -15,9 +17,19 @@ events_handler = EventHandler(bot)
 commands_handler = CommandHandler(bot)
 
 
+async def exceptions_middleware(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as e:
+        err = f"Internal server error - {e.__class__.__name__}: {e}"
+        consts.logger.error(err)
+        return Response(err, status_code=500)
+
+
 def start_web_server(host: str, port: int):
     from .routes import init_routes
 
+    app.middleware("http")(exceptions_middleware)
     init_routes()
     bot.start()
     uvicorn_config = uvicorn.Config(
