@@ -20,9 +20,14 @@ commands_handler = CommandHandler(bot)
 async def exceptions_middleware(request: Request, call_next):
     try:
         return await call_next(request)
-    except Exception as e:
+    except BaseException as e:
         err = f"Internal server error - {e.__class__.__name__}: {e}"
-        consts.logger.error(err)
+        consts.logger.error(f"{err}, "
+                            f"Request: url: {request.url}, "
+                            f"headers: {request.headers}, "
+                            f"params: {request.query_params or dict()}"
+                            )
+
         return Response(err, status_code=500)
 
 

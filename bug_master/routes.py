@@ -9,7 +9,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from . import consts
-from .app import app, commands_handler, events_handler
+from .app import app, commands_handler, events_handler, bot
 from .commands import Command, NotSupportedCommandError
 from .consts import logger
 from .events import Event, UrlVerificationEvent
@@ -75,6 +75,24 @@ class RouteValidator:
         return event, None
 
 
+async def handle_event_exception(event: Event, **kwargs):
+    try:
+        await event.handle(**kwargs)
+    except BaseException as e:
+        logger.error(f"Got error while handled event {{{event}}}, {e.__class__.__name__} {e}")
+
+
+async def handle_command_exception(command: Command) -> Response:
+    try:
+        return await command.handle()
+    except BaseException as e:
+        err = f"Got error while handled command {{{command}}}, {e.__class__.__name__} {e}"
+        logger.error(err)
+
+    await bot.add_comment(channel=command.user_id, comment=err)
+    return command.get_response("Internal server error. See BugMaster private chat for more information.")
+
+
 @app.post("/slack/events")
 async def events(request: Request):
     event, response = await RouteValidator.validate_event_request(request)
@@ -86,7 +104,7 @@ async def events(request: Request):
         logger.error(f"Invalid event {event}, {event._data}")
         return JSONResponse({"msg": "Failure", "Code": 401})
 
-    asyncio.get_event_loop().create_task(event.handle(channel_info=channel_info))
+    asyncio.get_event_loop().create_task(handle_event_exception(event, channel_info=channel_info))
     return JSONResponse({"msg": "Success", "Code": 200})
 
 
@@ -104,7 +122,7 @@ async def commands(request: Request):
         logger.warning(f"Failed to get command, {e.command}")
         return Command.get_response(f"{e.message}")
 
-    return await command.handle()
+    return await handle_command_exception(command)
 
 
 def init_routes():

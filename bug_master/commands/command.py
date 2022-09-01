@@ -19,6 +19,10 @@ class Command(ABC):
     def __str__(self):
         return f"{self._command}, {self._channel_name}"
 
+    @property
+    def user_id(self):
+        return self._user_id
+
     @classmethod
     def is_enabled(cls):
         return True
