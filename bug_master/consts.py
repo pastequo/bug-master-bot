@@ -3,6 +3,7 @@ import os
 import sys
 
 from loguru import logger
+from uvicorn.config import HTTPProtocolType
 
 APP_TOKEN = os.getenv("APP_TOKEN")
 SIGNING_SECRET = os.getenv("SIGNING_SECRET")
@@ -15,6 +16,7 @@ CONFIGURATION_FILE_NAME = os.getenv("CONFIGURATION_FILE_NAME", default="bug_mast
 LOG_LEVEL = int(os.getenv("LOG_LEVEL", logging.DEBUG))
 EVENT_FAILURE_PREFIX = ":red_jenkins_circle:"
 DISABLE_AUTO_ASSIGN_DEFAULT = False
+HTTP_PROTOCOL_TYPE: HTTPProtocolType = os.getenv("HTTP_PROTOCOL_TYPE", default="auto")
 
 
 if APP_TOKEN is None:
