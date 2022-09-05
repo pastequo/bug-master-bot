@@ -1,58 +1,21 @@
 import asyncio
-import hmac
 import json
 from typing import Tuple, Union
 from urllib.parse import parse_qs
 
-from slack_sdk import signature as _signature
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from . import consts
 from .app import app, commands_handler, events_handler, bot
 from .commands import Command, NotSupportedCommandError
 from .consts import logger
 from .events import Event, UrlVerificationEvent
 
 
-class SignatureVerifier(_signature.SignatureVerifier):
-    def is_valid(self, body: Union[str, bytes], timestamp: str, signature: str) -> bool:
-        """Verifies if the given signature is valid"""
-        if timestamp is None or signature is None:
-            return False
-
-        now = self.clock.now()
-        if abs(now - int(timestamp)) > 60 * 20:
-            logger.warning(f"Signature verifier failed to validate timestamp diff={abs(now - int(timestamp))}")
-            return False
-
-        calculated_signature = self.generate_signature(timestamp=timestamp, body=body)
-        if calculated_signature is None:
-            logger.warning("Signature verifier failed to validate due to invalid calculated_signature (None)")
-            return False
-        return hmac.compare_digest(calculated_signature, signature)
-
-
 class RouteValidator:
-    _signature_verifier = SignatureVerifier(consts.SIGNING_SECRET)
-
-    @classmethod
-    async def validate_request(cls, request) -> Tuple[bytes, dict, Union[Response, None]]:
-        body = await request.body()
-        headers = dict(request.headers) if hasattr(request, "headers") else {}
-
-        is_request_valid = cls._signature_verifier.is_valid_request(body, headers)
-        if not is_request_valid:
-            logger.warning(f"Got invalid request, {request.method} {headers} {request.url} {body}")
-            return body, headers, JSONResponse(content={"message": "Invalid request"}, status_code=401)
-
-        return body, headers, None
-
     @classmethod
     async def validate_event_request(cls, request) -> Tuple[Union[Event, None], Union[Response, None]]:
-        body, headers, not_valid_response = await cls.validate_request(request)
-        if not_valid_response:
-            return None, not_valid_response
+        body = await request.body()
 
         event = await events_handler.get_event(await request.json())  # json.loads(body)
 
@@ -110,9 +73,7 @@ async def events(request: Request):
 
 @app.post("/slack/commands")
 async def commands(request: Request):
-    raw_body, headers, not_valid_response = await RouteValidator.validate_request(request)
-    if not_valid_response:
-        return None, not_valid_response
+    raw_body = await request.body()
 
     logger.info("Handling new command")
     body = {k.decode(): v.pop().decode() for k, v in parse_qs(raw_body).items()}
