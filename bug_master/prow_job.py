@@ -241,7 +241,7 @@ class ProwJobFailure:
         self, file_path: str, contains: str, config_entry: dict, ignore_others: bool
     ) -> List[Action]:
         if "{job_name}" in file_path:
-            file_path = file_path.format(job_name=self.build_id)
+            file_path = file_path.format(job_name=self.job_name)
 
         return await self._update_actions(file_path, contains, config_entry, ignore_others)
 
