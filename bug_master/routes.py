@@ -71,12 +71,15 @@ async def events(request: Request):
     return JSONResponse({"msg": "Success", "Code": 200})
 
 
+@app.post("/slack/commands/{command}")
 @app.post("/slack/commands")
-async def commands(request: Request):
+async def commands(request: Request, command: str = None):
     raw_body = await request.body()
 
     logger.info("Handling new command")
     body = {k.decode(): v.pop().decode() for k, v in parse_qs(raw_body).items()}
+    if command:
+        body["text"] = command
     try:
         command = await commands_handler.get_command(body)
     except NotSupportedCommandError as e:
