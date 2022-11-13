@@ -27,7 +27,9 @@ class ChannelConfigurationCommand(Command):
                 f" configuration file (`{consts.CONFIGURATION_FILE_NAME}`) to the channel"
             )
 
-        return self.get_response(f"Current channel configuration - <{channel_config.permalink} | link>")
+        remote_config_msg = f". Remote configurations can be found <{channel_config.remote_repository} | here>."
+        return self.get_response(f"Current channel configuration - <{channel_config.permalink} | link>" +
+                                 (remote_config_msg if channel_config.remote_url else ""))
 
     def get_config_schema(self) -> Response:
         schema = BaseChannelConfig.get_config_schema()
