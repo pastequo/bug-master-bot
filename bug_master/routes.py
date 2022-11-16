@@ -43,10 +43,11 @@ async def handle_event_exception(event: Event, **kwargs):
     try:
         await event.handle(**kwargs)
     except BaseException as e:
-        err = f"Got error while handled event {{{event}}}, {e.__class__.__name__} {e}"
-        logger.error(err)
+        base_err = f"Got error while handled event: "
+        logger.error(f"{{{event}}} {base_err}, {e.__class__.__name__} {e}")
         if event.user_id:
-            await bot.add_comment(event.user_id, err)
+            await bot.add_comment(event.user_id, f"{base_err}\n```{{{event}}}```\n"
+                                                 f"Error:\n```{e.__class__.__name__}: {e}```")
 
 
 async def handle_command_exception(command: Command) -> Response:
