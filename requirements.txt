@@ -5,7 +5,6 @@ starlette
 aiohttp
 PyYAML
 slack_sdk==3.18.1
-SQLAlchemy
 uvicorn-loguru-integration==0.3.0
 beautifulsoup4
 schema

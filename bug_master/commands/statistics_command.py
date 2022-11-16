@@ -7,7 +7,6 @@ from starlette.responses import Response
 from tabulate import tabulate
 
 from ..bug_master_bot import BugMasterBot
-from ..models import MessageEvent
 from .command import Command
 
 
@@ -40,9 +39,9 @@ class StatisticsCommand(Command):
 
         min_date = datetime.datetime.now()
         logger.info(f"Getting statistics from database for {days} days")
-        for job in MessageEvent.select(channel=self._channel_id, since=start_time):
-            min_date = job.time if job.time < min_date else min_date
-            counter[job.job_name] += 1
+        # for job in MessageEvent.select(channel=self._channel_id, since=start_time):
+        #     min_date = job.time if job.time < min_date else min_date
+        #     counter[job.job_name] += 1
 
         logger.info(f"Loaded {len(counter)} failures from jobs table")
         sorted_counter = [list(job) for job in counter.most_common()]

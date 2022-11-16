@@ -157,6 +157,9 @@ class ChannelFileConfig(BaseChannelConfig):
         return content
 
     async def load(self, bot_token: str) -> "ChannelFileConfig":
+        self._remote_url = None
+        self._assignees = None
+        self._prow_configurations = None
         content = await self._get_file_content(bot_token, self._url)
 
         self.validate_configurations(content)

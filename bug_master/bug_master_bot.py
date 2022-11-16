@@ -14,7 +14,6 @@ from yaml.scanner import ScannerError
 from . import consts
 from .channel_config_handler import ChannelFileConfig
 from .consts import logger
-from .models import Channel
 
 
 class BugMasterBot:
@@ -118,7 +117,7 @@ class BugMasterBot:
         try:
             await bmc.load(self._bot_token)
             res = True
-            logger.info(f"Configuration file loaded successfully with {len(self._config[channel])} entries")
+            logger.info(f"Configuration file loaded successfully with {len(self._config.get(channel, []))} entries")
         except (SchemaError, ScannerError) as e:
             # if not from_history:
             self._config[channel] = bmc
@@ -188,14 +187,6 @@ class BugMasterBot:
 
         if not channel_info:
             return {}
-
-        channel = Channel.select(channel_id)
-        if not channel:
-            Channel.create(
-                id=channel_info.get("id"), name=channel_info.get("name"), is_private=channel_info.get("is_private")
-            )
-        else:
-            channel.update_last_seen()
 
         return channel_info
 

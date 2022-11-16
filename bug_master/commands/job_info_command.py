@@ -5,8 +5,8 @@ from loguru import logger
 from starlette.responses import Response
 
 from ..bug_master_bot import BugMasterBot
+from ..channel_config_handler import ChannelFileConfig
 from ..interactive import DaysRangeDropDown, JobsDropDown
-from ..models.channel_config import ChannelConfig
 from .command import Command
 
 
@@ -27,7 +27,7 @@ class JobInfoCommand(Command):
         self._task = asyncio.get_event_loop().create_task(self._create_drop_down_menu())
         return self.get_response("Loading jobs drop down menu..")
 
-    async def _validate_drop_down_configurations(self) -> ChannelConfig | None:
+    async def _validate_drop_down_configurations(self) -> ChannelFileConfig | None:
         if (config := self._bot.get_configuration(self._channel_id)) is None:
             config = await self._bot.get_channel_configuration(self._channel_id, self._channel_name)
             if config is None:
