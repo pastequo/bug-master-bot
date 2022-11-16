@@ -48,7 +48,7 @@ class DropDownInteractive(InteractiveMessage, ABC):
         return "select"
 
     @classmethod
-    async def get_drop_down(cls, next_id: str = "", **kwargs):
+    async def get_drop_down(cls, next_id: str = "", **kwargs) -> List[dict]:
         next_id = next_id if not next_id else f"-{next_id}"
         return [
             {

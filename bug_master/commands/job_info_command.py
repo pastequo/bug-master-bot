@@ -6,6 +6,7 @@ from starlette.responses import Response
 
 from ..bug_master_bot import BugMasterBot
 from ..interactive import DaysRangeDropDown, JobsDropDown
+from ..models.channel_config import ChannelConfig
 from .command import Command
 
 
@@ -26,14 +27,35 @@ class JobInfoCommand(Command):
         self._task = asyncio.get_event_loop().create_task(self._create_drop_down_menu())
         return self.get_response("Loading jobs drop down menu..")
 
-    async def _create_drop_down_menu(self):
+    async def _validate_drop_down_configurations(self) -> ChannelConfig | None:
         if (config := self._bot.get_configuration(self._channel_id)) is None:
             config = await self._bot.get_channel_configuration(self._channel_id, self._channel_name)
             if config is None:
-                return
+                return None
+
+        if not config.prow_configurations:
+            await self._bot.add_ephemeral_comment(
+                self._channel_id,
+                self.user_id,
+                "Cannot preform this action, `prow_configurations` key is missing on "
+                "the configuration file. Please update the configuration file and try"
+                " again.\n```$ cat bug_master_configuration.yaml```\n"
+                "```prow_configurations:\n  owner: repo-owner\n  repo: repo-name\n  "
+                "files:\n    - path/to/jobs/periodics/configuration/file.yaml"
+                "\n  ...\n```",
+            )
+
+            logger.info(f"Missing job-info configurations for channel {self._channel_name}:{self._channel_id}")
+            return None
+
+        return config
+
+    async def _create_drop_down_menu(self):
+        if not (config := (await self._validate_drop_down_configurations())):
+            logger.warning("Invalid configuration while trying to run jobinfo command")
+            return
 
         drop_down = JobsDropDown(self._bot)
-
         attachments = await drop_down.get_drop_down(channel_config=config, next_id=DaysRangeDropDown.callback_id())
         drop_down_comment = await self._bot.add_comment(
             self._user_id, "Select job from the drop down menu", attachments=attachments

@@ -2,7 +2,6 @@ import json
 from copy import deepcopy
 from typing import Any, Dict, List, Union
 
-import aiohttp
 import yaml
 from loguru import logger
 from schema import Optional, Or, Schema, SchemaError
@@ -163,6 +162,6 @@ class ChannelFileConfig(BaseChannelConfig):
         self.validate_configurations(content)
         self._assignees = content.get("assignees", {})
         self._actions = content.get("actions")
-        self._prow_configurations = content.get("prow_configurations")
+        self._prow_configurations = content.get("prow_configurations", {})
 
         return self
