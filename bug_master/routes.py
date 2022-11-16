@@ -6,10 +6,11 @@ from urllib.parse import parse_qs
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from .app import app, commands_handler, events_handler, bot
+from .app import app, bot, commands_handler, events_handler
 from .commands import Command, NotSupportedCommandError
 from .consts import logger
 from .events import Event, UrlVerificationEvent
+from .interactive import InteractiveResponse
 
 
 class RouteValidator:
@@ -87,6 +88,13 @@ async def commands(request: Request, command: str = None):
         return Command.get_response(f"{e.message}")
 
     return await handle_command_exception(command)
+
+
+@app.post("/slack/interactive")
+async def interactive(request: Request):
+    raw_body = await request.body()
+    payload = {k.decode(): json.loads(v.pop().decode()) for k, v in parse_qs(raw_body).items()}.get("payload")
+    return await InteractiveResponse(bot, payload).get_next_response()
 
 
 def init_routes():

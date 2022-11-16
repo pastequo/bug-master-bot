@@ -4,7 +4,7 @@ from fastapi.routing import APIRoute
 from slack_sdk.signature import SignatureVerifier
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.requests import Request
-from starlette.responses import Response, JSONResponse
+from starlette.responses import JSONResponse, Response
 
 from . import consts
 
@@ -12,7 +12,6 @@ _signature_verifier = SignatureVerifier(consts.SIGNING_SECRET)
 
 
 class SlackRequest(Request):
-
     async def body(self) -> bytes:
         if "body" in self.scope:
             setattr(self, "_body", self.scope.get("body"))
@@ -58,10 +57,11 @@ async def exceptions_middleware(request: Request, call_next: RequestResponseEndp
 
     except BaseException as e:
         err = f"Internal server error - {e.__class__.__name__}: {e}"
-        consts.logger.error(f"{err}, "
-                            f"Request: url: {request.url}, "
-                            f"headers: {request.headers}, "
-                            f"params: {request.query_params or dict()}"
-                            )
+        consts.logger.error(
+            f"{err}, "
+            f"Request: url: {request.url}, "
+            f"headers: {request.headers}, "
+            f"params: {request.query_params or dict()}"
+        )
 
         return Response("Internal server error", status_code=500)

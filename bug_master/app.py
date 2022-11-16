@@ -29,6 +29,6 @@ def start_web_server(host: str, port: int):
         host=host,
         port=port,
         http=consts.HTTP_PROTOCOL_TYPE,
-        log_level=logging.getLevelName(consts.LOG_LEVEL).lower()
+        log_level=logging.getLevelName(consts.LOG_LEVEL).lower(),
     )
     run_uvicorn_loguru(uvicorn_config)

@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from typing import Any, Dict, List, Union
 
 import aiohttp
@@ -7,14 +8,14 @@ from loguru import logger
 from schema import Optional, Or, Schema, SchemaError
 
 from bug_master import consts
+from bug_master.utils import Utils
 
 
 class BaseChannelConfig:
     _config_schema = Schema(
         {
-            Optional("remote_configurations"): {
-                "url": str
-            },
+            Optional("remote_configurations"): {"url": str},
+            Optional("prow_configurations"): {"owner": str, "repo": str, "files": [str]},
             Optional("assignees"): {
                 Optional("disable_auto_assign"): bool,
                 "issue_url": str,
@@ -42,7 +43,19 @@ class BaseChannelConfig:
 
     def __init__(self):
         self._actions: List[dict] = []
+        self._prow_configurations: List[dict] = []
         self._assignees: dict = {}
+
+    def __key(self):
+        return str(self._prow_configurations) + str(self._actions)
+
+    def __hash__(self) -> int:
+        return hash(self.__key())
+
+    def __eq__(self, other):
+        if isinstance(other, BaseChannelConfig):
+            return self.__key() == other.__key()
+        return NotImplemented
 
     @classmethod
     def get_config_schema(cls) -> Schema:
@@ -114,6 +127,10 @@ class ChannelFileConfig(BaseChannelConfig):
     def actions_items(self):
         return self._actions.__iter__()
 
+    @property
+    def prow_configurations(self) -> dict:
+        return deepcopy(self._prow_configurations)
+
     def assignees_items(self):
         return self._assignees.get("data", []).__iter__()
 
@@ -123,23 +140,15 @@ class ChannelFileConfig(BaseChannelConfig):
         if self._remote_url is None:
             headers = {"Authorization": "Bearer %s" % bot_token}
 
-        async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(url) as resp:
-                if not resp.status == 200:
-                    return content
+        if (raw_content := await Utils.get_file_content(url, headers)) is None:
+            return {}
 
-                raw_content = await resp.text()
-
-            if self._filetype == "yaml":
-                # try:
-                content = yaml.safe_load(raw_content)
-                # except ScannerError:
-                #     # TODO send message to the user
-                #     pass
-            elif self._filetype == "json":
-                content = json.loads(raw_content)
-            else:
-                logger.warning("Invalid configuration file found")
+        if self._filetype == "yaml":
+            content = yaml.safe_load(raw_content)
+        elif self._filetype == "json":
+            content = json.loads(raw_content)
+        else:
+            logger.warning("Invalid configuration file found")
 
         if self._remote_url is None and (remote_configurations := content.get("remote_configurations")) is not None:
             self._remote_url = remote_configurations.get("url")
@@ -154,4 +163,6 @@ class ChannelFileConfig(BaseChannelConfig):
         self.validate_configurations(content)
         self._assignees = content.get("assignees", {})
         self._actions = content.get("actions")
+        self._prow_configurations = content.get("prow_configurations")
+
         return self

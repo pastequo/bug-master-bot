@@ -10,6 +10,7 @@ from . import consts
 from .channel_config_handler import ChannelFileConfig
 from .consts import logger
 from .entities import Action, Comment, CommentType, Reaction
+from .utils import Utils
 
 
 @dataclass
@@ -89,15 +90,8 @@ class ProwJobFailure:
         storage_link = storage_link + "/" if not storage_link.endswith("/") else storage_link
         full_file_url = urljoin(storage_link, file_path)
         logger.info(f"Opening a session to {full_file_url} ...")
-        async with aiohttp.ClientSession() as session:
-            async with session.get(full_file_url) as resp:
-                if resp.status == 200:
-                    return await resp.text()
-                else:
-                    logger.warning(
-                        f"Failed to load file data file is missing of invalid URL {full_file_url}. "
-                        f"Returned status {resp.status}"
-                    )
+        if (content := await Utils.get_file_content(full_file_url)) is not None:
+            return content
 
         return None
 

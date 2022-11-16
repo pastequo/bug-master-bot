@@ -2,6 +2,7 @@ from .apply_command import ApplyCommand
 from .channel_configuration_command import ChannelConfigurationCommand
 from .filterby_command import FilterByCommand
 from .help_command import HelpCommand
+from .job_info_command import JobInfoCommand
 from .statistics_command import StatisticsCommand
 
 
@@ -11,6 +12,7 @@ class SupportedCommands:
     STATISTICS_COMMAND = "stats"
     APPLY_COMMAND = "apply"
     FILTERBY_COMMAND = "filterby"
+    JOB_INFO_COMMAND = "jobinfo"
 
     __commands = {
         GET_CHANNEL_CONFIGURATIONS_COMMAND: ChannelConfigurationCommand,
@@ -18,6 +20,7 @@ class SupportedCommands:
         STATISTICS_COMMAND: StatisticsCommand,
         APPLY_COMMAND: ApplyCommand,
         FILTERBY_COMMAND: FilterByCommand,
+        JOB_INFO_COMMAND: JobInfoCommand,
     }
 
     @classmethod

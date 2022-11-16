@@ -27,6 +27,7 @@ class BugMasterBot:
         self._bot_id = None
         self._user_id = None
         self._name = None
+        self._org_url = None
 
     def __str__(self):
         return f"{self._name}:{self._bot_id} {self._user_id}"
@@ -47,6 +48,10 @@ class BugMasterBot:
     def name(self):
         return self._name
 
+    @property
+    def org_url(self):
+        return self._org_url
+
     def has_channel_configurations(self, channel_id: str):
         return channel_id in self._config
 
@@ -64,8 +69,22 @@ class BugMasterBot:
                 return None
             raise
 
-    async def add_comment(self, channel: str, comment: str, ts: str = None, parse: str = "none") -> AsyncSlackResponse:
-        return await self._web_client.chat_postMessage(channel=channel, text=comment, thread_ts=ts, parse=parse)
+    async def add_comment(
+        self, channel: str, comment: str, ts: str = None, parse: str = "none", attachments=None
+    ) -> AsyncSlackResponse:
+        return await self._web_client.chat_postMessage(
+            channel=channel, text=comment, thread_ts=ts, parse=parse, attachments=attachments
+        )
+
+    async def update_comment(self, channel: str, comment: str, ts: str) -> AsyncSlackResponse:
+        return await self._web_client.chat_update(channel=channel, text=comment, ts=ts)
+
+    async def add_ephemeral_comment(
+        self, channel: str, user: str, comment: str, ts: str = None, parse: str = "none", attachments=None
+    ) -> AsyncSlackResponse:
+        return await self._web_client.chat_postEphemeral(
+            channel=channel, user=user, text=comment, thread_ts=ts, parse=parse, attachments=attachments
+        )
 
     def get_configuration(self, channel: str) -> Union[ChannelFileConfig, None]:
         return self._config.get(channel, None)
@@ -142,6 +161,7 @@ class BugMasterBot:
             self._bot_id = info.get("bot_id")
             self._user_id = info.get("user_id")
             self._name = info.get("user")
+            self._org_url = info.get("url")
             logger.info(f"Bot authentication complete - {self}")
         else:
             logger.warning("Can't auth bot web_client")
@@ -211,3 +231,6 @@ class BugMasterBot:
             return None
 
         return self.get_configuration(channel_id)
+
+    async def users_conversations(self, user: str = None, types: str = None):
+        return await self._sm_client.web_client.users_conversations(user=user, types=types)
