@@ -18,6 +18,10 @@ class StatisticsCommand(Command):
         self._history_days = self._command_args[0] if self._command_args else self.DEFAULT_STAT_HISTORY
 
     @classmethod
+    def command(cls):
+        return "stats"
+
+    @classmethod
     def is_enabled(cls):
         return False
 
@@ -66,11 +70,11 @@ class StatisticsCommand(Command):
             if days < 1:
                 raise ValueError
         except ValueError:
-            return self.get_response(
+            return self.get_response_with_command(
                 f"Invalid number of history days, got `{self._history_days}`. Positive integer is required."
             )
 
         stats, days = self.get_stats(days)
         if not stats:
-            return self.get_response(f"There are no records for this channel in the last {days} days.")
-        return self.get_response(f"Statistics for the last {days} days:\n```{stats}```")
+            return self.get_response_with_command(f"There are no records for this channel in the last {days} days.")
+        return self.get_response_with_command(f"Statistics for the last {days} days:\n```{stats}```")

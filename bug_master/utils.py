@@ -62,9 +62,13 @@ class Utils(ABC):
         return content.decode()
 
     @classmethod
+    def get_job_history_link(cls, job_name: str):
+        return cls.SPYGLASS_JOB_HISTORY_URL_FMT.format(JOB_NAME=job_name)
+
+    @classmethod
     @AsyncTTL(time_to_live=360, maxsize=None)
     async def get_jobs_history(cls, job_name: str) -> List[JobStatus]:
-        url = cls.SPYGLASS_JOB_HISTORY_URL_FMT.format(JOB_NAME=job_name)
+        url = cls.get_job_history_link(job_name)
         text = await cls.get_file_content(url)
         script = None
 
@@ -84,3 +88,24 @@ class Utils(ABC):
             config = await bot.get_channel_configuration(channel_id, channel_name)
 
         return config
+
+    @classmethod
+    @AsyncTTL(time_to_live=3600, maxsize=None)
+    async def get_jobs(cls, prow_configurations: dict) -> List[str]:
+        jobs = []
+        repo = prow_configurations.get("repo")
+        owner = prow_configurations.get("owner")
+
+        if not prow_configurations:
+            logger.warning("Missing job-info configurations")
+            return jobs
+
+        for file_path in prow_configurations.get("files", []):
+            periodics_jobs_config = await cls.get_git_content(repo=repo, owner=owner, path=file_path)
+            _jobs_config = periodics_jobs_config.get("periodics", {})
+            periodics_names = [job.get("name") for job in _jobs_config if job.get("name").endswith("periodic")]
+            logger.debug(f"Found {len(periodics_names)} jobs on {file_path}")
+            jobs += periodics_names
+
+        logger.info(f"Total jobs found {len(jobs)}")
+        return jobs

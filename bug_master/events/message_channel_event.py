@@ -9,7 +9,6 @@ from ..channel_config_handler import ChannelFileConfig
 from ..channel_message import ChannelMessage
 from ..consts import logger
 from ..entities import Action
-from ..prow_job import ProwJobFailure
 from .event import Event
 
 

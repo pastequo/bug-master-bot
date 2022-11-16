@@ -1,10 +1,7 @@
 import re
 from typing import List
 
-from cache import AsyncTTL
-
 from bug_master.channel_config_handler import ChannelFileConfig
-from bug_master.consts import logger
 from bug_master.utils import Utils
 
 from .drop_down_interactive import DropDownInteractive
@@ -28,35 +25,10 @@ class JobsDropDown(DropDownInteractive):
         return "jobs_interactive_menu"
 
     @classmethod
-    @AsyncTTL(time_to_live=3600, maxsize=None)
-    async def get_jobs(cls, channel_config: ChannelFileConfig):
-        jobs = []
-        config = channel_config.prow_configurations
-        repo = config.get("repo")
-        owner = config.get("owner")
-
-        if not config:
-            logger.warning(
-                f"Missing job-info configurations, got repo={repo}, owner={owner} "
-                f"files={len(config.get('files', []))}"
-            )
-            return jobs
-
-        for file_path in config.get("files", []):
-            periodics_jobs_config = await Utils.get_git_content(repo=repo, owner=owner, path=file_path)
-            _jobs_config = periodics_jobs_config.get("periodics", {})
-            periodics_names = [job.get("name") for job in _jobs_config if job.get("name").endswith("periodic")]
-            logger.debug(f"Found {len(periodics_names)} jobs on {file_path}")
-            jobs += periodics_names
-
-        logger.info(f"Total jobs found {len(jobs)}")
-        return jobs
-
-    @classmethod
     async def _get_options(cls, channel_config: ChannelFileConfig) -> List[dict]:
         options = []
 
-        for job in await cls.get_jobs(channel_config):
+        for job in await Utils.get_jobs(channel_config.prow_configurations):
             text = re.split("(?=e2e)", job).pop()
             options.append({"text": text, "value": job})
 

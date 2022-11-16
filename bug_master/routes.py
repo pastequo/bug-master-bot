@@ -46,8 +46,9 @@ async def handle_event_exception(event: Event, **kwargs):
         base_err = f"Got error while handled event: "
         logger.error(f"{{{event}}} {base_err}, {e.__class__.__name__} {e}")
         if event.user_id:
-            await bot.add_comment(event.user_id, f"{base_err}\n```{{{event}}}```\n"
-                                                 f"Error:\n```{e.__class__.__name__}: {e}```")
+            await bot.add_comment(
+                event.user_id, f"{base_err}\n```{{{event}}}```\n" f"Error:\n```{e.__class__.__name__}: {e}```"
+            )
 
 
 async def handle_command_exception(command: Command) -> Response:
@@ -58,7 +59,7 @@ async def handle_command_exception(command: Command) -> Response:
         logger.error(err)
 
     await bot.add_comment(channel=command.user_id, comment=err)
-    return command.get_response("Internal server error. See BugMaster private chat for more information.")
+    return command.get_response_with_command("Internal server error. See BugMaster private chat for more information.")
 
 
 @app.post("/slack/events")

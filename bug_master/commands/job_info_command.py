@@ -16,6 +16,10 @@ class JobInfoCommand(Command):
         self._task = None
 
     @classmethod
+    def command(cls):
+        return "jobinfo"
+
+    @classmethod
     def get_arguments_info(cls) -> Dict[str, str]:
         return {}
 
@@ -25,7 +29,7 @@ class JobInfoCommand(Command):
 
     async def handle(self) -> Response:
         self._task = asyncio.get_event_loop().create_task(self._create_drop_down_menu())
-        return self.get_response("Loading jobs drop down menu..")
+        return self.get_response_with_command("Loading jobs drop down menu..")
 
     async def _validate_drop_down_configurations(self) -> ChannelFileConfig | None:
         if (config := self._bot.get_configuration(self._channel_id)) is None:
