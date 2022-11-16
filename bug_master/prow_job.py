@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin
 
-import aiohttp
 from bs4 import BeautifulSoup, element
+from cache import AsyncTTL
 
 from . import consts
 from .channel_config_handler import ChannelFileConfig
@@ -79,14 +79,12 @@ class ProwJobFailure:
     def build_id(self):
         return self._resource.build_id
 
-    async def get_content(self, file_path: str, storage_link=None) -> Union[str, None]:
+    @AsyncTTL(time_to_live=86400, maxsize=1024, skip_args=1)
+    async def get_content(self, file_path: str, storage_link: str) -> Union[str, None]:
         if not file_path:
             return None
 
         logger.debug(f"Get file content from {file_path} with base storage link {storage_link}")
-        if storage_link is None:
-            storage_link = self._storage_link
-
         storage_link = storage_link + "/" if not storage_link.endswith("/") else storage_link
         full_file_url = urljoin(storage_link, file_path)
         logger.info(f"Opening a session to {full_file_url} ...")
@@ -95,6 +93,7 @@ class ProwJobFailure:
 
         return None
 
+    @AsyncTTL(time_to_live=86400, maxsize=1024, skip_args=1)
     async def glob(self, dir_path: str, result: dict) -> Tuple[Optional[str], Optional[str]]:
         if dir_path.endswith("*"):
             dir_path = dir_path[:-1]
@@ -111,7 +110,7 @@ class ProwJobFailure:
 
         for file in files:
             file_path = urljoin(dir_path, file)
-            content = await self.get_content(file_path)
+            content = await self.get_content(file_path, self._storage_link)
             contains = result.get("contains")
             if contains and content and contains in content:
                 return result.get("emoji"), result.get("text")
@@ -139,7 +138,7 @@ class ProwJobFailure:
             if reaction or comment:
                 is_applied = True
         else:
-            content = await self.get_content(file_path)
+            content = await self.get_content(file_path, self._storage_link)
             if content is None:
                 return actions
 
