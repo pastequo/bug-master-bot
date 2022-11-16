@@ -12,12 +12,15 @@ from bug_master import consts
 class BaseChannelConfig:
     _config_schema = Schema(
         {
+            Optional("remote_configurations"): {
+                "url": str
+            },
             Optional("assignees"): {
                 Optional("disable_auto_assign"): bool,
                 "issue_url": str,
                 "data": [{"job_name": str, "users": [str]}],
             },
-            "actions": [
+            Optional("actions"): [
                 {
                     "description": str,
                     Or("emoji", "text"): str,
@@ -71,6 +74,7 @@ class ChannelFileConfig(BaseChannelConfig):
         self._filetype = filetype
         self._url = file_info["url_private"]
         self._permalink = file_info["permalink"]
+        self._remote_url = None
 
     def __len__(self):
         return len(self._actions)
@@ -90,6 +94,18 @@ class ChannelFileConfig(BaseChannelConfig):
         return self._permalink
 
     @property
+    def remote_url(self) -> str:
+        return self._remote_url
+
+    @property
+    def remote_repository(self) -> str:
+        if not self._remote_url:
+            return ""
+
+        repo = self._remote_url.replace("raw.githubusercontent.com", "github.com")
+        return repo.replace("/main/", "/blob/main/")
+
+    @property
     def assignees_issue_url(self):
         if self._assignees:
             return self._assignees.get("issue_url", "")
@@ -101,11 +117,14 @@ class ChannelFileConfig(BaseChannelConfig):
     def assignees_items(self):
         return self._assignees.get("data", []).__iter__()
 
-    async def _get_file_content(self, bot_token: str) -> Union[dict, None]:
+    async def _get_file_content(self, bot_token: str, url: str) -> Union[dict, None]:
         content = {}
+        headers = None
+        if self._remote_url is None:
+            headers = {"Authorization": "Bearer %s" % bot_token}
 
-        async with aiohttp.ClientSession(headers={"Authorization": "Bearer %s" % bot_token}) as session:
-            async with session.get(self._url) as resp:
+        async with aiohttp.ClientSession(headers=headers) as session:
+            async with session.get(url) as resp:
                 if not resp.status == 200:
                     return content
 
@@ -122,10 +141,15 @@ class ChannelFileConfig(BaseChannelConfig):
             else:
                 logger.warning("Invalid configuration file found")
 
+        if self._remote_url is None and (remote_configurations := content.get("remote_configurations")) is not None:
+            self._remote_url = remote_configurations.get("url")
+            logger.info(f"Loading remote configurations {self._remote_url}")
+            return await self._get_file_content(bot_token, self._remote_url)
+
         return content
 
     async def load(self, bot_token: str) -> "ChannelFileConfig":
-        content = await self._get_file_content(bot_token)
+        content = await self._get_file_content(bot_token, self._url)
 
         self.validate_configurations(content)
         self._assignees = content.get("assignees", {})

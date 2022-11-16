@@ -115,10 +115,12 @@ class BugMasterBot:
             return False
 
         if not from_history:
+            remote_config_msg = f". Remote configurations can be found <{bmc.remote_repository} | here>."
+
             await self.add_comment(
                 channel,
                 f"BugMasterBot configuration <{bmc.permalink} | file> `{self._config[channel].name}` "
-                f"updated successfully",
+                f"updated successfully" + (remote_config_msg if bmc.remote_url else ""),
             )
         return res
 
