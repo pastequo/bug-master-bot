@@ -1,5 +1,4 @@
 import asyncio
-import datetime
 import re
 from enum import Enum
 from typing import Dict, List, Tuple
@@ -18,14 +17,16 @@ class ListCommands(Enum):
 
 
 class ListCommand(Command):
-    WEEK = 7
+    DEFAULT_TESTS_AMOUNT = 7
 
     def __init__(self, bot: BugMasterBot, **kwargs) -> None:
         super().__init__(bot, **kwargs)
-        self._task = None
-        if len(self._command_args) < 1:
+
+        if len(self._command_args) == 0 or len(self._command_args) > 2:
             raise NotSupportedCommandError(f"Command is not supported")
-        self._list_command = self._command_args[0]
+
+        self._list_command = self._command_args[0] if len(self._command_args) >= 1 else None
+        self._tests_amount = self._command_args[1] if len(self._command_args) >= 2 else None
 
     @classmethod
     def command(cls):
@@ -33,7 +34,8 @@ class ListCommand(Command):
 
     @classmethod
     def get_arguments_info(cls) -> Dict[str, str]:
-        return {"jobs": "List all periodic available jobs from configuration file"}
+        return {"jobs <int>": f"List all {cls.DEFAULT_TESTS_AMOUNT}(default) periodic available jobs or "
+                              f"specify max history (20 jobs) to query. e.g. /bugmaster list jobs 10"}
 
     @classmethod
     def get_description(cls) -> str:
@@ -51,15 +53,27 @@ class ListCommand(Command):
         return await self.handle_list_job_command(config)
 
     async def handle_list_job_command(self, config):
-        asyncio.get_event_loop().create_task(self._handle_jobs_history_report(config))
+        try:
+            if self._tests_amount is not None:
+                tests_amount = int(self._tests_amount)
+                if tests_amount < 1 or tests_amount > 20:
+                    raise ValueError()
+            else:
+                tests_amount = self.DEFAULT_TESTS_AMOUNT
+
+        except ValueError:
+            return self.get_response_with_command("Invalid tests amount. Expected positive int between 1 to 20,"
+                                                  f"got {self._tests_amount}")
+
+        asyncio.get_event_loop().create_task(self._handle_jobs_history_report(config, tests_amount))
         return self.get_response_with_command("Loading jobs list...")
 
-    async def _handle_jobs_history_report(self, config, days: int = WEEK):
+    async def _handle_jobs_history_report(self, config, tests_amount: int = DEFAULT_TESTS_AMOUNT):
         tasks = []
         results = []
 
         for job in await Utils.get_jobs(config.prow_configurations):
-            tasks.append(asyncio.get_event_loop().create_task(self._load_job_history_data(results, job, days)))
+            tasks.append(asyncio.get_event_loop().create_task(self._load_job_history_data(results, job, tests_amount)))
 
         while True:
             if all([task.done() for task in tasks]):
@@ -67,7 +81,7 @@ class ListCommand(Command):
             await asyncio.sleep(2)
 
         table = self._get_list_jobs_success_rate_table(results)
-        comment = f"Jobs list report for the last {days} days:\n```{table}```"
+        comment = f"A summary of the {tests_amount} most recent jobs:\n```{table}```"
         await self._bot.add_ephemeral_comment(self._channel_id, self._user_id, comment)
 
     @classmethod
@@ -113,13 +127,8 @@ class ListCommand(Command):
         return "\n".join(headers + rows_data)
 
     @classmethod
-    async def _load_job_history_data(cls, result: List[Tuple[str, int, int]], job_name: str, days: int):
-        date = (datetime.datetime.now() - datetime.timedelta(days=days)).date()
-
-        jobs = []
-        for job_status in await Utils.get_job_history(job_name):
-            if date <= job_status.started.date():
-                jobs.append(job_status)
-
+    async def _load_job_history_data(cls, result: List[Tuple[str, int, int]], job_name: str, tests_amount: int):
+        jobs = await Utils.get_job_history(job_name)
+        jobs = jobs[:min(tests_amount, len(jobs))]
         succeeded_jobs = [j for j in jobs if j.succeeded]
         result.append((job_name, len(jobs), len(succeeded_jobs)))
