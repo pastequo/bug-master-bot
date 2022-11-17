@@ -84,23 +84,29 @@ class ListCommand(Command):
             await asyncio.sleep(2)
 
         table = self._get_list_jobs_success_rate_table(results)
-        comment = f"A summary of the {tests_amount} most recent jobs:\n```{table}```"
+        comment = f"A summary of the {tests_amount} most recent jobs:\n```{table}\n* Last job failed```"
         await self._bot.add_ephemeral_comment(self._channel_id, self._user_id, comment)
 
     @classmethod
-    def _get_list_jobs_success_rate_table(cls, results: List[Tuple[str, int, int]]) -> str:
+    def _get_list_jobs_success_rate_table(cls, results: List[Tuple[str, int, int, bool]]) -> str:
         jobs_data = []
         if not results:
             return "Can't find any jobs"
 
-        for job_name, total_jobs, succeeded_jobs in results:
+        for job_name, total_jobs, succeeded_jobs, is_last_failed in results:
             if total_jobs == 0 or total_jobs == succeeded_jobs:
                 continue
 
             short_job_name = f"{re.split('(?=e2e)', job_name).pop().replace('-periodic', '')}"
             success_rate = 100 * (succeeded_jobs / total_jobs)
+            last_failed = " *" if is_last_failed else ""
             jobs_data.append(
-                (short_job_name, f"{success_rate:.2f}% ({succeeded_jobs}/{total_jobs})", success_rate, job_name)
+                (
+                    short_job_name,
+                    f"{success_rate:.2f}% ({succeeded_jobs}/{total_jobs})" + last_failed,
+                    success_rate,
+                    job_name,
+                )
             )
 
         jobs_data.sort(key=lambda data: data[2], reverse=True)
@@ -130,8 +136,9 @@ class ListCommand(Command):
         return "\n".join(headers + rows_data)
 
     @classmethod
-    async def _load_job_history_data(cls, result: List[Tuple[str, int, int]], job_name: str, tests_amount: int):
+    async def _load_job_history_data(cls, result: List[Tuple[str, int, int, bool]], job_name: str, tests_amount: int):
         jobs = await Utils.get_job_history(job_name)
+
         jobs = jobs[: min(tests_amount, len(jobs))]
         succeeded_jobs = [j for j in jobs if j.succeeded]
-        result.append((job_name, len(jobs), len(succeeded_jobs)))
+        result.append((job_name, len(jobs), len(succeeded_jobs), jobs[0].succeeded))
