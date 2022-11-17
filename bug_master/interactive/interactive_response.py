@@ -44,7 +44,7 @@ class InteractiveResponse:
     async def _get_final_response(self):
         selected_items = self._actions[0].get("selected_options")[0].get("value").split("|")
         days, job_name = int(selected_items[0]), selected_items[1]
-        jobs_history = await Utils.get_jobs_history(job_name)
+        jobs_history = await Utils.get_job_history(job_name)
         date = (datetime.datetime.now() - datetime.timedelta(days=days)).date()
 
         jobs = []
@@ -52,13 +52,12 @@ class InteractiveResponse:
             if date <= job.started.date():
                 jobs.append(job)
 
-        failed_jobs = [j for j in jobs if not j.succeeded]
         succeeded_jobs = [j for j in jobs if j.succeeded]
         success_rate = 100 * len(succeeded_jobs) / (len(jobs))
         msg = "```"
         msg += ("=" * 8) + f" {re.split('(?=e2e)', job_name).pop()} " + ("=" * 8) + "\n"
         msg += (
-            f" {u'•'} Total jobs failed since {date}: {len(failed_jobs)}\n"
+            f" {u'•'} Total jobs failed since {date}: {len(jobs) - len(succeeded_jobs)}\n"
             f" {u'•'} Total jobs succeeded since {date}: {len(succeeded_jobs)}\n"
             f" {u'•'} Success rate: {success_rate:.2f}%\n\n"
             f" Job history can be found here - <{Utils.SPYGLASS_JOB_HISTORY_URL_FMT.format(JOB_NAME=job_name)} | link>"

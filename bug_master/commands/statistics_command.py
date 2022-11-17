@@ -39,7 +39,7 @@ class StatisticsCommand(Command):
     def get_stats(self, days: int) -> Tuple[str, int]:
         counter = Counter()
         today = datetime.date.today()
-        start_time = today - datetime.timedelta(days=days)
+        # start_time = today - datetime.timedelta(days=days)
 
         min_date = datetime.datetime.now()
         logger.info(f"Getting statistics from database for {days} days")

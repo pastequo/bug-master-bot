@@ -67,7 +67,7 @@ class Utils(ABC):
 
     @classmethod
     @AsyncTTL(time_to_live=360, maxsize=None)
-    async def get_jobs_history(cls, job_name: str) -> List[JobStatus]:
+    async def get_job_history(cls, job_name: str) -> List[JobStatus]:
         url = cls.get_job_history_link(job_name)
         text = await cls.get_file_content(url)
         script = None

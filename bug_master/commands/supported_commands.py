@@ -25,10 +25,3 @@ class SupportedCommands:
     @classmethod
     def get_disabled_commands_map(cls):
         return {k: v for k, v in cls._commands.items() if not v.is_enabled()}
-
-
-class NotSupportedCommandError(Exception):
-    def __init__(self, message, command: str = ""):
-        super().__init__(self, message)
-        self.command = command
-        self.message = message
