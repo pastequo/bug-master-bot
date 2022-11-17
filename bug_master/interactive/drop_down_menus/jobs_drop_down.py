@@ -4,6 +4,7 @@ from typing import List
 from bug_master.channel_config_handler import ChannelFileConfig
 from bug_master.utils import Utils
 
+from ...consts import logger
 from .drop_down_interactive import DropDownInteractive
 
 
@@ -27,7 +28,7 @@ class JobsDropDown(DropDownInteractive):
     @classmethod
     async def _get_options(cls, channel_config: ChannelFileConfig) -> List[dict]:
         options = []
-
+        logger.info(f"Attempting to get jobs prow_configurations: {channel_config.prow_configurations}")
         for job in await Utils.get_jobs(channel_config.prow_configurations):
             text = re.split("(?=e2e)", job).pop()
             options.append({"text": text, "value": job})

@@ -97,8 +97,12 @@ async def commands(request: Request, command: str = None):
 
 @app.post("/slack/interactive")
 async def interactive(request: Request):
+    logger.info("Handling new interactive")
+
     raw_body = await request.body()
     payload = {k.decode(): json.loads(v.pop().decode()) for k, v in parse_qs(raw_body).items()}.get("payload")
+
+    logger.debug(f"Getting next response {payload}")
     return await InteractiveResponse(bot, payload).get_next_response()
 
 

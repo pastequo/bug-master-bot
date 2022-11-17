@@ -1,11 +1,11 @@
 import asyncio
 from typing import Dict
 
-from loguru import logger
 from starlette.responses import Response
 
 from ..bug_master_bot import BugMasterBot
 from ..channel_config_handler import ChannelFileConfig
+from ..consts import logger
 from ..interactive import DaysRangeDropDown, JobsDropDown
 from .command import Command
 
@@ -28,11 +28,22 @@ class JobInfoCommand(Command):
         return "Get last job records status"
 
     async def handle(self) -> Response:
+        logger.info(f"Starting report task user={self.user_id} channel={self._channel_id}:{self._channel_name}")
         self._task = asyncio.get_event_loop().create_task(self._create_drop_down_menu())
         return self.get_response_with_command("Loading jobs drop down menu..")
 
     async def _validate_drop_down_configurations(self) -> ChannelFileConfig | None:
+        logger.info(
+            f"Validating drop down configurations for "
+            f"user={self.user_id} channel={self._channel_id}:{self._channel_name}"
+        )
+
         if (config := self._bot.get_configuration(self._channel_id)) is None:
+            logger.info(
+                f"Cannot find configurations, loading for "
+                f"user={self.user_id} channel={self._channel_id}:{self._channel_name}"
+            )
+
             config = await self._bot.get_channel_configuration(self._channel_id, self._channel_name)
             if config is None:
                 return None
@@ -58,6 +69,11 @@ class JobInfoCommand(Command):
         if not (config := (await self._validate_drop_down_configurations())):
             logger.warning("Invalid configuration while trying to run jobinfo command")
             return
+
+        logger.info(
+            f"Setting job_info drop down menu for "
+            f"user={self.user_id} channel={self._channel_id}:{self._channel_name}"
+        )
 
         drop_down = JobsDropDown(self._bot)
         attachments = await drop_down.get_drop_down(channel_config=config, next_id=DaysRangeDropDown.callback_id())

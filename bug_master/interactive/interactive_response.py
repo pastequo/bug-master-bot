@@ -7,6 +7,8 @@ from bug_master.bug_master_bot import BugMasterBot
 from bug_master.interactive.interactive_flow_handler import InteractiveFlowHandler
 from bug_master.utils import Utils
 
+from ..consts import logger
+
 
 class InteractiveResponse:
     def __init__(self, bot: BugMasterBot, payload: dict) -> None:
@@ -31,19 +33,26 @@ class InteractiveResponse:
     async def get_next_response(self) -> JSONResponse:
         callback_ids = self._callback_id.split("-")
         next_message = self._original_message
-
         if len(callback_ids) > 1:
             next_callback_id = callback_ids[1]
+            logger.info(
+                f"Getting next interactive next chain response {self._channel_id}, " f"callbacks={next_callback_id}"
+            )
             job_name = self._actions[0].get("selected_options")[0].get("value")
+            logger.info(f"Getting next interactive next chain response {self._channel_id}, callbacks={callback_ids}")
             attachments = await InteractiveFlowHandler.get_next(next_callback_id).get_drop_down(job_name=job_name)
             next_message["attachments"] = attachments
             return JSONResponse(next_message)
 
+        logger.info(f"Getting final interactive response {self._channel_id}, callbacks={callback_ids}")
         return JSONResponse({"text": await self._get_final_response()})
 
     async def _get_final_response(self):
+        logger.info(f"Getting final response {self._channel_id}")
         selected_items = self._actions[0].get("selected_options")[0].get("value").split("|")
         days, job_name = int(selected_items[0]), selected_items[1]
+
+        logger.info(f"Getting job history {self._channel_id} job_name={job_name}")
         jobs_history = await Utils.get_job_history(job_name)
         date = (datetime.datetime.now() - datetime.timedelta(days=days)).date()
 

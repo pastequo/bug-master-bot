@@ -34,8 +34,10 @@ class ListCommand(Command):
 
     @classmethod
     def get_arguments_info(cls) -> Dict[str, str]:
-        return {"jobs <int>": f"List all {cls.DEFAULT_TESTS_AMOUNT}(default) periodic available jobs or "
-                              f"specify max history (20 jobs) to query. e.g. /bugmaster list jobs 10"}
+        return {
+            "jobs <int>": f"List all {cls.DEFAULT_TESTS_AMOUNT}(default) periodic available jobs or "
+            f"specify max history (20 jobs) to query. e.g. /bugmaster list jobs 10"
+        }
 
     @classmethod
     def get_description(cls) -> str:
@@ -62,8 +64,9 @@ class ListCommand(Command):
                 tests_amount = self.DEFAULT_TESTS_AMOUNT
 
         except ValueError:
-            return self.get_response_with_command("Invalid tests amount. Expected positive int between 1 to 20,"
-                                                  f"got {self._tests_amount}")
+            return self.get_response_with_command(
+                "Invalid tests amount. Expected positive int between 1 to 20," f"got {self._tests_amount}"
+            )
 
         asyncio.get_event_loop().create_task(self._handle_jobs_history_report(config, tests_amount))
         return self.get_response_with_command("Loading jobs list...")
@@ -129,6 +132,6 @@ class ListCommand(Command):
     @classmethod
     async def _load_job_history_data(cls, result: List[Tuple[str, int, int]], job_name: str, tests_amount: int):
         jobs = await Utils.get_job_history(job_name)
-        jobs = jobs[:min(tests_amount, len(jobs))]
+        jobs = jobs[: min(tests_amount, len(jobs))]
         succeeded_jobs = [j for j in jobs if j.succeeded]
         result.append((job_name, len(jobs), len(succeeded_jobs)))
