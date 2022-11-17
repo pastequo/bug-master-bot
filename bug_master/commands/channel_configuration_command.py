@@ -48,6 +48,10 @@ class ChannelConfigurationCommand(Command):
         if self._command_args and self._command_args[0] == "schema":
             return self.get_config_schema()
 
+        if self._command_args and self._command_args[0] == "refresh":
+            if not await self._bot.try_load_configurations_from_history(self._channel_id):
+                return self.get_response_with_command("Invalid or missing channel configuration")
+
         return await self.get_configuration_link()
 
     @classmethod
