@@ -23,7 +23,7 @@ class ListCommand(Command):
         super().__init__(bot, **kwargs)
 
         if len(self._command_args) == 0 or len(self._command_args) > 2:
-            raise NotSupportedCommandError(f"Command is not supported")
+            raise NotSupportedCommandError("Command is not supported")
 
         self._list_command = self._command_args[0] if len(self._command_args) >= 1 else None
         self._tests_amount = self._command_args[1] if len(self._command_args) >= 2 else None
@@ -83,36 +83,63 @@ class ListCommand(Command):
                 break
             await asyncio.sleep(2)
 
-        table = self._get_list_jobs_success_rate_table(results)
+        table = self._get_list_jobs_success_rate_table(results, config)
         comment = f"A summary of the {tests_amount} most recent jobs:\n```{table}\n* Last job failed```"
         await self._bot.add_ephemeral_comment(self._channel_id, self._user_id, comment)
 
     @classmethod
-    def _get_list_jobs_success_rate_table(cls, results: List[Tuple[str, int, int, bool]]) -> str:
+    def _get_job_issue_data(cls, config):
+        issues_data = {}
+        for action in config.actions_items():
+            pattern = r"https://issues?[\w/\-?=%.]+\.[\w/\-&?=%.]+\d"
+            if action.get("job_name"):
+                issues = list(set(url for url in re.findall(pattern, action.get("text", ""))))
+                if len(issues) > 0:
+                    issues_data[action.get("job_name")] = issues[0]  # get only first issue
+
+        return issues_data
+
+    @classmethod
+    def _get_list_jobs_success_rate_table(cls, results: List[Tuple[str, int, int, bool]], config) -> str:
         jobs_data = []
         if not results:
             return "Can't find any jobs"
 
+        issue_data = cls._get_job_issue_data(config)
         for job_name, total_jobs, succeeded_jobs, is_last_failed in results:
             if total_jobs == 0 or total_jobs == succeeded_jobs:
                 continue
 
+            issue_placeholder = ""
             short_job_name = f"{re.split('(?=e2e)', job_name).pop().replace('-periodic', '')}"
+            jobs_with_issues = [
+                issue_
+                for k, issue_ in issue_data.items()
+                if k.endswith(short_job_name) or k.endswith(short_job_name + "-periodic")
+            ]
+
+            if len(jobs_with_issues) > 0:
+                issue_placeholder = len(jobs_with_issues[0].split("/")[-1]) * "@"
+
             success_rate = 100 * (succeeded_jobs / total_jobs)
             last_failed = " *" if is_last_failed else ""
             jobs_data.append(
                 (
                     short_job_name,
                     f"{success_rate:.2f}% ({succeeded_jobs}/{total_jobs})" + last_failed,
+                    issue_placeholder,
                     success_rate,
                     job_name,
+                    jobs_with_issues,
                 )
             )
 
-        jobs_data.sort(key=lambda data: data[2], reverse=True)
+        jobs_data.sort(key=lambda data: data[3], reverse=True)
 
         # Remove columns needed only as local data
-        table = tabulate([d[:-2] for d in jobs_data], headers=["Job Name", "Success rate"], tablefmt="rounded_outline")
+        table = tabulate(
+            [d[:-3] for d in jobs_data], headers=["Job Name", "Success rate", "Issue"], tablefmt="rounded_outline"
+        )
         return cls._align_list_jobs_table_link_chars(table, jobs_data)
 
     @classmethod
@@ -125,12 +152,20 @@ class ListCommand(Command):
             if "e2e" not in rows_data[i]:
                 continue
 
+            jobs_with_issues = jobs_data[jobs_data_index][5]
+
             short_job_name = jobs_data[jobs_data_index][0]
-            link = (
+            history_link = (
                 f"<{Utils.get_job_history_link(jobs_data[jobs_data_index][3])} | "
                 f"{re.split('(?=e2e)', short_job_name).pop().replace('-periodic', '')}>"
             )
-            rows_data[i] = rows_data[i].replace(short_job_name, link)
+            rows_data[i] = rows_data[i].replace(short_job_name, history_link)
+            if len(jobs_with_issues) > 0:
+                issue_placeholder = len(jobs_with_issues[0].split("/")[-1]) * "@"
+                issue_url = jobs_with_issues[0]
+                issue_link = f"<{issue_url} | {issue_url.split('/')[-1]}>"
+                rows_data[i] = rows_data[i].replace(issue_placeholder, issue_link)
+
             jobs_data_index += 1
 
         return "\n".join(headers + rows_data)
