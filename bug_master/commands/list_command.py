@@ -156,7 +156,7 @@ class ListCommand(Command):
 
             short_job_name = jobs_data[jobs_data_index][0]
             history_link = (
-                f"<{Utils.get_job_history_link(jobs_data[jobs_data_index][3])} | "
+                f"<{Utils.get_job_history_link(jobs_data[jobs_data_index][4])} | "
                 f"{re.split('(?=e2e)', short_job_name).pop().replace('-periodic', '')}>"
             )
             rows_data[i] = rows_data[i].replace(short_job_name, history_link)
@@ -176,4 +176,4 @@ class ListCommand(Command):
 
         jobs = jobs[: min(tests_amount, len(jobs))]
         succeeded_jobs = [j for j in jobs if j.succeeded]
-        result.append((job_name, len(jobs), len(succeeded_jobs), jobs[0].succeeded))
+        result.append((job_name, len(jobs), len(succeeded_jobs), not jobs[0].succeeded))
