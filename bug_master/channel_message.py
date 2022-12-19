@@ -51,7 +51,7 @@ class ChannelMessage:
         actions = list()
 
         for link in self._get_links():
-            failure = await ProwJobFailure(link, self._ts).load()
-            actions += await failure.get_failure_actions(self._channel_id, channel_config, filter_id)
+            if (failure := await ProwJobFailure(link, self._ts).load()) is not None:
+                actions += await failure.get_failure_actions(self._channel_id, channel_config, filter_id)
 
         return actions

@@ -19,6 +19,10 @@ class FilterByCommand(Command):
         self._days, self._action_id = self._command_args
 
     @classmethod
+    def command(cls):
+        return "filterby"
+
+    @classmethod
     def get_description(cls) -> str:
         return "Filter failed jobs by given conditions"
 
@@ -34,11 +38,13 @@ class FilterByCommand(Command):
         channel_name = channel_info.get("name", self._channel_id)
 
         if (channel_config := await self._bot.get_channel_configuration(self._channel_id, channel_name)) is None:
-            return self.get_response("Can't find channel configurations or that the configurations are not valid")
+            return self.get_response_with_command(
+                "Can't find channel configurations or that the configurations are not valid"
+            )
 
         asyncio.get_event_loop().create_task(self._handle_messages(channel_config))
 
-        return self.get_response(
+        return self.get_response_with_command(
             "Task is being executed in the background and it might take some time to finish the report. The result will"
             "be sent as a private message."
         )

@@ -19,6 +19,11 @@ class Command(ABC):
     def __str__(self):
         return f"{self._command}, {self._channel_name}"
 
+    @classmethod
+    @abstractmethod
+    def command(cls):
+        pass
+
     @property
     def user_id(self):
         return self._user_id
@@ -51,6 +56,10 @@ class Command(ABC):
     @abstractmethod
     async def handle(self) -> Response:
         pass
+
+    def get_response_with_command(self, text: str) -> Response:
+        text = f"```$ /bugmaster {self.command()} {' '.join(self._command_args)}```\n" + text
+        return JSONResponse({"response_type": "ephemeral", "text": text})
 
     @classmethod
     def get_response(cls, text: str) -> Response:

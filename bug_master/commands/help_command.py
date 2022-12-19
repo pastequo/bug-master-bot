@@ -9,6 +9,10 @@ from .command import Command
 
 class HelpCommand(Command):
     @classmethod
+    def command(cls):
+        return "help"
+
+    @classmethod
     def get_arguments_info(cls) -> Dict[str, str]:
         return {}
 
@@ -44,7 +48,7 @@ class HelpCommand(Command):
     async def handle(self) -> Response:
         logger.info(f"Handling {self._command}")
 
-        return self.get_response(
+        return self.get_response_with_command(
             f"*============== Help ==============*\n"
             f"*Available commands:*\n"
             f"```{self.get_commands_info()}```\n\n"

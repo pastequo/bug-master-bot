@@ -11,7 +11,6 @@ BOT_USER_TOKEN = os.getenv("BOT_USER_TOKEN")
 SSL_KEYFILE_PASSWORD = os.getenv("SSL_KEYFILE_PASSWORD")
 WEBSERVER_PORT = int(os.getenv("WEBSERVER_PORT", 8080))
 WEBSERVER_HOST = os.getenv("WEBSERVER_HOST", default="0.0.0.0")
-SQLALCHEMY_DATABASE_PATH = os.getenv("SQLALCHEMY_DATABASE_PATH", default="./bot.db")
 CONFIGURATION_FILE_NAME = os.getenv("CONFIGURATION_FILE_NAME", default="bug_master_configuration.yaml")
 LOG_LEVEL = int(os.getenv("LOG_LEVEL", logging.DEBUG))
 EVENT_FAILURE_PREFIX = ":red_jenkins_circle:"

@@ -31,6 +31,7 @@ class Event(BaseEvent, ABC):
         self._type = self._data.get("type", None)
         self._subtype = self._data.get("subtype", "")
         self._channel_id = self._data.get("channel")
+        self._user_id = self._data.get("user")
 
     def __str__(self):
         return f"{self._type}:{self._subtype} {self._channel_id}"
@@ -38,6 +39,10 @@ class Event(BaseEvent, ABC):
     @property
     def channel_id(self):
         return self._channel_id
+
+    @property
+    def user_id(self):
+        return self._user_id
 
     @property
     def type(self):

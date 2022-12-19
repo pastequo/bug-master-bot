@@ -19,6 +19,10 @@ class ApplyCommand(Command):
         self._task = None
 
     @classmethod
+    def command(cls):
+        return "apply"
+
+    @classmethod
     def get_arguments_info(cls) -> Dict[str, str]:
         return {
             "<messages>": "A positive number that represent the amount of messages to apply on. "
@@ -43,13 +47,13 @@ class ApplyCommand(Command):
         try:
             messages_count = self._get_messages_count()
         except ValueError:
-            return self.get_response(
+            return self.get_response_with_command(
                 f"Invalid number of messages to read, got `{self._command_args[0]}`. Positive integer is required."
             )
         messages, _cursor = await self._bot.get_messages(self._channel_id, messages_count)
         logger.info(f"Got {len(messages)} form channel {self._channel_id}:{self._channel_name}, creating task ...")
         self._task = asyncio.get_event_loop().create_task(self.update_task(messages))
-        return self.get_response(
+        return self.get_response_with_command(
             f"Updating process is in progress, this might take a few minutes to finish.\n"
             f"`Messages loaded from history: {len(messages)}`"
         )

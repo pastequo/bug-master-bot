@@ -2,8 +2,9 @@ from typing import Type, Union
 
 from ..bug_master_bot import BugMasterBot
 from .command import Command
+from .exceptions import NotSupportedCommandError
 from .help_command import HelpCommand
-from .supported_commands import NotSupportedCommandError, SupportedCommands
+from .supported_commands import SupportedCommands
 
 
 class CommandHandler:

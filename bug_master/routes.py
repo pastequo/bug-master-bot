@@ -6,10 +6,11 @@ from urllib.parse import parse_qs
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from .app import app, commands_handler, events_handler, bot
+from .app import app, bot, commands_handler, events_handler
 from .commands import Command, NotSupportedCommandError
 from .consts import logger
 from .events import Event, UrlVerificationEvent
+from .interactive import InteractiveResponse
 
 
 class RouteValidator:
@@ -42,7 +43,12 @@ async def handle_event_exception(event: Event, **kwargs):
     try:
         await event.handle(**kwargs)
     except BaseException as e:
-        logger.error(f"Got error while handled event {{{event}}}, {e.__class__.__name__} {e}")
+        base_err = "Got error while handled event: "
+        logger.error(f"{{{event}}} {base_err}, {e.__class__.__name__} {e}")
+        if event.user_id:
+            await bot.add_comment(
+                event.user_id, f"{base_err}\n```{{{event}}}```\n" f"Error:\n```{e.__class__.__name__}: {e}```"
+            )
 
 
 async def handle_command_exception(command: Command) -> Response:
@@ -53,7 +59,7 @@ async def handle_command_exception(command: Command) -> Response:
         logger.error(err)
 
     await bot.add_comment(channel=command.user_id, comment=err)
-    return command.get_response("Internal server error. See BugMaster private chat for more information.")
+    return command.get_response_with_command("Internal server error. See BugMaster private chat for more information.")
 
 
 @app.post("/slack/events")
@@ -71,12 +77,15 @@ async def events(request: Request):
     return JSONResponse({"msg": "Success", "Code": 200})
 
 
+@app.post("/slack/commands/{command}")
 @app.post("/slack/commands")
-async def commands(request: Request):
+async def commands(request: Request, command: str = None):
     raw_body = await request.body()
 
     logger.info("Handling new command")
     body = {k.decode(): v.pop().decode() for k, v in parse_qs(raw_body).items()}
+    if command:
+        body["text"] = command
     try:
         command = await commands_handler.get_command(body)
     except NotSupportedCommandError as e:
@@ -84,6 +93,17 @@ async def commands(request: Request):
         return Command.get_response(f"{e.message}")
 
     return await handle_command_exception(command)
+
+
+@app.post("/slack/interactive")
+async def interactive(request: Request):
+    logger.info("Handling new interactive")
+
+    raw_body = await request.body()
+    payload = {k.decode(): json.loads(v.pop().decode()) for k, v in parse_qs(raw_body).items()}.get("payload")
+
+    logger.debug(f"Getting next response {payload}")
+    return await InteractiveResponse(bot, payload).get_next_response()
 
 
 def init_routes():

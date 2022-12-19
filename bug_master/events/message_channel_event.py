@@ -9,8 +9,6 @@ from ..channel_config_handler import ChannelFileConfig
 from ..channel_message import ChannelMessage
 from ..consts import logger
 from ..entities import Action
-from ..models import MessageEvent
-from ..prow_job import ProwJobFailure
 from .event import Event
 
 
@@ -102,16 +100,6 @@ class MessageChannelEvent(Event):
             await self.add_reactions([action for action in actions if action.reaction], ignore_others)
             await self.add_comments([action for action in actions if action.comment], ignore_others)
             # self.add_record(pj)  # todo need to fix database behavior
-
-    def add_record(self, job_failure: ProwJobFailure):
-        MessageEvent.create(
-            job_id=job_failure.build_id,
-            job_name=job_failure.job_name,
-            user=self._user,
-            thread_ts=self._ts,
-            url=job_failure.url,
-            channel_id=self._channel_id,
-        )
 
     @classmethod
     def filter_ignore_others(cls, actions: List[Action], ignore_others: bool = False):
