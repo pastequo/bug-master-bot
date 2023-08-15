@@ -1,0 +1,102 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: bug-master
+objects:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: bug-master-deployment
+  spec:
+    selector:
+      matchLabels:
+        app: bug-master
+    replicas: 1
+    template:
+      metadata:
+        labels:
+          app: bug-master
+      spec:
+        containers:
+          - name: bug-master
+            image: ${IMAGE_NAME}:${IMAGE_TAG}
+            imagePullPolicy: Always
+            resources:
+              limits:
+                cpu: ${{CPU_LIMIT}}
+                memory: ${MEMORY_LIMIT}
+              requests:
+                cpu: ${CPU_REQUEST}
+                memory: ${MEMORY_REQUEST}
+            ports:
+              - name: bug-master-port
+                containerPort: ${{WEBSERVER_PORT}}
+            env:
+            - name: LOG_LEVEL
+              value: ${LOG_LEVEL}
+            - name: WEBSERVER_PORT
+              value: ${WEBSERVER_PORT}
+            - name: RELOAD_RESULTS_DATA
+              value: ${RELOAD_RESULTS_DATA}
+            - name: HTTP_PROTOCOL_TYPE
+              value: ${HTTP_PROTOCOL_TYPE}
+            - name: SIGNING_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: ${BUG_MASTER_SIGNING_SECRET_KEY}
+                  name: ${BUG_MASTER_SECRETS_NAME}
+            - name: BOT_USER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: ${BUG_MASTER_BOT_USER_TOKEN_KEY}
+                  name: ${BUG_MASTER_SECRETS_NAME}
+            - name: APP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: ${BUG_MASTER_APP_TOKEN_KEY}
+                  name: ${BUG_MASTER_SECRETS_NAME}
+
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      app: bug-master
+    name: bug-master-service
+  spec:
+    ports:
+      - name: bug-master-port
+        port: ${{WEBSERVER_PORT}}
+        protocol: TCP
+        targetPort: ${{WEBSERVER_PORT}}
+    selector:
+      app: bug-master
+           
+parameters:
+- name: IMAGE_NAME
+  value: "quay.io/app-sre/bug-master"
+- name: IMAGE_TAG
+  required: true
+- name: CPU_LIMIT
+  value: "500m"
+- name: MEMORY_LIMIT
+  value: "2000Mi"
+- name: CPU_REQUEST
+  value: "300m"
+- name: MEMORY_REQUEST
+  value: "400Mi"
+- name: LOG_LEVEL
+  value: "10"
+- name: RELOAD_RESULTS_DATA
+  value: "ok"
+- name: HTTP_PROTOCOL_TYPE
+  value: "httptools"
+- name: WEBSERVER_PORT
+  value: "8080"
+- name: BUG_MASTER_SECRETS_NAME
+  value: "bug-master-secrets"
+- name: BUG_MASTER_SIGNING_SECRET_KEY
+  value: "bug-master-signing-secret-key"
+- name: BUG_MASTER_BOT_USER_TOKEN_KEY
+  value: "bug-master-bot-user-token-key"
+- name: BUG_MASTER_APP_TOKEN_KEY
+  value: "bug-master-app-token-key"
