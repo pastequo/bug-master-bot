@@ -21,8 +21,15 @@ class BaseChannelConfig:
             },
             Optional("assignees"): {
                 Optional("disable_auto_assign"): bool,
-                "issue_url": str,
-                "data": [{"job_name": str, "users": [str]}],
+                Optional("issue_url"): str,
+                "data": [
+                    {
+                        Optional("job_name"): str,
+                        Optional("jobs"): [str],
+                        "users": [str],
+                        Optional("startswith"): bool,
+                    }
+                ],
             },
             Optional("actions"): [
                 {

@@ -83,7 +83,7 @@ class ProwJobFailure:
     def build_id(self):
         return self._resource.build_id
 
-    @AsyncTTL(time_to_live=86400, maxsize=1024, skip_args=1)
+    # @AsyncTTL(time_to_live=86400, maxsize=1024, skip_args=1)
     async def get_content(self, file_path: str, storage_link: str) -> Union[str, None]:
         if not file_path:
             return None
@@ -111,6 +111,12 @@ class ProwJobFailure:
             dir_path,
             self._storage_link.replace(self.BASE_STORAGE_URL, self.DIRS_STORAGE_URL),
         )
+
+        if not dir_content:
+            logger.error(
+                f"Empty dir {dir_path} content. Please check directory path or if prow is up."
+            )
+            return None, None
 
         navigable_strings = [
             [c for c in tag.contents if isinstance(c, element.NavigableString)]
@@ -230,7 +236,30 @@ class ProwJobFailure:
             )
             return actions
 
+        for assignees in channel_config.assignees_items():
+            self._apply_global_assignees_actions(assignees, actions)
+
         return actions
+
+    def _apply_global_assignees_actions(self, assignees: dict, actions: List[Action]):
+        jobs = assignees.get("jobs", [assignees.get("job_name")])
+        for job in jobs:
+            if assignees.get("startswith"):
+                assign = self.job_name.startswith(job)
+            else:
+                assign = self.job_name == job
+
+            if not assign:
+                continue
+
+            username = " ".join([f"@{username}" for username in assignees["users"]])
+            comment = f"{username} You have been automatically assigned to investigate this job failure"
+
+            action = Action("", "assignees-action", self._message_ts)
+            action.comment = Comment(
+                text=comment, type=CommentType.ASSIGNEE, parse="full"
+            )
+            actions.append(action)
 
     @classmethod
     def _join_comments(cls, comments: Set[Comment]) -> Comment:
@@ -250,34 +279,42 @@ class ProwJobFailure:
         actions = list()
 
         for action_data in channel_config.actions_items():
-            if filter_id and (
-                action_data.get("action_id") is None
-                or action_data.get("action_id") != filter_id
-            ):
-                continue
+            try:
+                if filter_id and (
+                    action_data.get("action_id") is None
+                    or action_data.get("action_id") != filter_id
+                ):
+                    continue
 
-            ignore_others = action_data.get("ignore_others", None)
+                ignore_others = action_data.get("ignore_others", None)
 
-            conditions = action_data.get(
-                "conditions",
-                [
-                    {
-                        "contains": action_data.get("contains", ""),
-                        "file_path": action_data.get("file_path", ""),
-                    }
-                ],
-            )
-
-            for condition in conditions:
-                actions += await self.format_and_update_actions(
-                    **condition, config_entry=action_data, ignore_others=ignore_others
+                conditions = action_data.get(
+                    "conditions",
+                    [
+                        {
+                            "contains": action_data.get("contains", ""),
+                            "file_path": action_data.get("file_path", ""),
+                        }
+                    ],
                 )
+
+                for condition in conditions:
+                    actions += await self.format_and_update_actions(
+                        **condition,
+                        config_entry=action_data,
+                        ignore_others=ignore_others,
+                    )
+            except UnicodeDecodeError as e:
+                logger.error(f"{e}, Action data: {action_data}")
 
         return actions
 
     async def format_and_update_actions(
         self, file_path: str, contains: str, config_entry: dict, ignore_others: bool
     ) -> List[Action]:
+        if not file_path or not contains:
+            return []
+
         if "{job_name}" in file_path:
             file_path = file_path.format(job_name=self.job_name)
 

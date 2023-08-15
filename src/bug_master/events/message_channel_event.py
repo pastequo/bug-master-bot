@@ -117,7 +117,6 @@ class MessageChannelEvent(Event):
             await self.add_comments(
                 [action for action in actions if action.comment], ignore_others
             )
-            # self.add_record(pj)  # todo need to fix database behavior
 
     @classmethod
     def filter_ignore_others(cls, actions: List[Action], ignore_others: bool = False):
