@@ -21,7 +21,7 @@ class ProwResource:
     repo: str
     branch: str
     variant: str = ""
-    name: str = ""
+    __name: str = ""
 
     @classmethod
     def get_prow_resource(cls, resource: dict) -> "ProwResource":
@@ -46,12 +46,12 @@ class ProwResource:
 
     @property
     def name(self):
-        if self.name:
-            return self.name
+        if self.__name:
+            return self.__name
 
         prefix = f"periodic-ci-{self.org}-{self.repo}-{self.branch}-{self.variant + '-' if self.variant else ''}"
-        self.name = self.full_name.replace(prefix, "")
-        return self.name
+        self.__name = self.full_name.replace(prefix, "")
+        return self.__name
 
 
 class ProwJobFailure:
