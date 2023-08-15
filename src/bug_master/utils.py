@@ -7,6 +7,7 @@ from typing import List, Union
 
 import aiohttp
 import yaml
+from aiohttp import ClientTimeout
 from bs4 import BeautifulSoup
 from cache import AsyncTTL
 from dateutil import parser
@@ -28,19 +29,26 @@ class Utils(ABC):
     )
 
     @classmethod
-    async def get_file_content(cls, url: str, headers: dict = None) -> str | None:
+    async def get_file_content(
+        cls, url: str, headers: dict = None, timeout: int = 5
+    ) -> str | None:
         logger.info(f"Getting file content {url}")
-        async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(url) as resp:
-                if not resp.status == 200:
-                    logger.error(
-                        f"Failed to load file data file is missing of invalid URL {url} with headers {headers}"
-                        f". Returned status {resp.status}"
-                    )
-                    return None
+        async with aiohttp.ClientSession(
+            headers=headers, timeout=ClientTimeout(total=timeout)
+        ) as session:
+            try:
+                async with session.get(url) as resp:
+                    if not resp.status == 200:
+                        logger.error(
+                            f"Failed to load file data file is missing of invalid URL {url} with headers {headers}"
+                            f". Returned status {resp.status}"
+                        )
+                        return None
 
-                logger.info(f"File content {url} download successfully")
-                return await resp.text()
+                    logger.info(f"File content {url} download successfully")
+                    return await resp.text()
+            except TimeoutError as e:
+                logger.error(f"Timeout Error: Failed to get {url}, {e}")
 
     @classmethod
     async def get_yaml_file_content(cls, url: str, headers: dict = None) -> dict:
