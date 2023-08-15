@@ -20,6 +20,9 @@ DISABLE_AUTO_ASSIGN_DEFAULT = False
 HTTP_PROTOCOL_TYPE: HTTPProtocolType = os.getenv("HTTP_PROTOCOL_TYPE", default="auto")
 DOWNLOAD_FILE_TIMEOUT = int(os.getenv("DOWNLOAD_FILE_TIMEOUT", default=5))
 
+MB = 1000000
+MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", default=30 * MB))
+
 
 if APP_TOKEN is None:
     raise EnvironmentError("Missing app token (APP_TOKEN) environment variable")

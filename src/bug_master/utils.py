@@ -10,10 +10,9 @@ import yaml
 from aiohttp import ClientTimeout
 from bs4 import BeautifulSoup
 from cache import AsyncTTL
-from consts import DOWNLOAD_FILE_TIMEOUT
 from dateutil import parser
 
-from bug_master.consts import logger
+from bug_master.consts import DOWNLOAD_FILE_TIMEOUT, logger
 
 
 @dataclass

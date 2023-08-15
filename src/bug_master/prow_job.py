@@ -101,12 +101,7 @@ class ProwJobFailure:
 
         return None
 
-    @AsyncTTL(time_to_live=86400, maxsize=1024, skip_args=1)
-    async def glob(
-        self, dir_path: str, result: dict
-    ) -> Tuple[Optional[str], Optional[str]]:
-        if dir_path.endswith("*"):
-            dir_path = dir_path[:-1]
+    async def _parse_files_grid(self, dir_path: str) -> List[Tuple[str, int]] | None:
         dir_content = await self.get_content(
             dir_path,
             self._storage_link.replace(self.BASE_STORAGE_URL, self.DIRS_STORAGE_URL),
@@ -116,25 +111,53 @@ class ProwJobFailure:
             logger.error(
                 f"Empty dir {dir_path} content. Please check directory path or if prow is up."
             )
+            return None
+
+        # Find all grid rows
+        files = []
+        if dir_content is None:
+            logger.warning(f"Trying to parse none dir content for {dir_path}")
+            return files
+
+        soup = BeautifulSoup(dir_content, "html.parser")
+        grid_rows = soup.select(".resource-grid .grid-row")
+
+        for row in grid_rows:
+            name_div = row.select_one(".pure-u-2-5 a")
+            if name_div:  # Check to ensure there's an anchor tag within the div
+                file = name_div.text.strip()  # Extract file name
+                size = row.select_one(".pure-u-1-5").text.strip()  # Extract file size
+                if file == "..":
+                    continue
+                try:
+                    files.append((file, int(size)))
+                except (TypeError, ValueError):
+                    logger.warning(
+                        f"Invalid file size, got {size}, expected integer for file {file}"
+                    )
+
+        return files
+
+    @AsyncTTL(time_to_live=86400, maxsize=1024, skip_args=1)
+    async def glob(
+        self, dir_path: str, result: dict
+    ) -> Tuple[Optional[str], Optional[str]]:
+        if dir_path.endswith("*"):
+            dir_path = dir_path[:-1]
+
+        files = await self._parse_files_grid(dir_path)
+        if files is None:
             return None, None
 
-        navigable_strings = [
-            [c for c in tag.contents if isinstance(c, element.NavigableString)]
-            for tag in BeautifulSoup(dir_content, "html.parser").find_all("a")
-            if hasattr(tag, "contents")
-        ]
-        files = [
-            str(f.pop()).strip()
-            for f in navigable_strings
-            if len(f) > 0 and len(f[0]) > self.MIN_FILE_SIZE
-        ]
-
-        for file in files:
+        for file, file_size in files:
             file_path = urljoin(dir_path, file)
+            if file_size > consts.MAX_FILE_SIZE:
+                continue
             content = await self.get_content(file_path, self._storage_link)
             contains = result.get("contains")
             if contains and content and contains in content:
                 return result.get("emoji"), result.get("text")
+
         return None, None
 
     async def _update_actions(
