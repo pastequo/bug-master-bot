@@ -18,6 +18,7 @@ LOG_LEVEL = int(os.getenv("LOG_LEVEL", logging.DEBUG))
 EVENT_FAILURE_PREFIX = ":red_jenkins_circle:"
 DISABLE_AUTO_ASSIGN_DEFAULT = False
 HTTP_PROTOCOL_TYPE: HTTPProtocolType = os.getenv("HTTP_PROTOCOL_TYPE", default="auto")
+DOWNLOAD_FILE_TIMEOUT = int(os.getenv("DOWNLOAD_FILE_TIMEOUT", default=5))
 
 
 if APP_TOKEN is None:

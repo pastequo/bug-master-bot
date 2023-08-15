@@ -10,6 +10,7 @@ import yaml
 from aiohttp import ClientTimeout
 from bs4 import BeautifulSoup
 from cache import AsyncTTL
+from consts import DOWNLOAD_FILE_TIMEOUT
 from dateutil import parser
 
 from bug_master.consts import logger
@@ -30,7 +31,10 @@ class Utils(ABC):
 
     @classmethod
     async def get_file_content(
-        cls, url: str, headers: dict = None, timeout: int = 5
+        cls,
+        url: str,
+        headers: dict = None,
+        timeout: int = DOWNLOAD_FILE_TIMEOUT,
     ) -> str | None:
         logger.info(f"Getting file content {url}")
         async with aiohttp.ClientSession(
