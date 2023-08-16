@@ -21,9 +21,7 @@ class ChannelConfigurationCommand(Command):
     async def get_configuration_link(self):
         channel_config = self._bot.get_configuration(self._channel_id)
         if not channel_config:
-            logger.info(
-                f"Attempting to load configurations for channel `{self._channel_id}:{self._channel_name}`"
-            )
+            logger.info(f"Attempting to load configurations for channel `{self._channel_id}:{self._channel_name}`")
             await self._bot.try_load_configurations_from_history(self._channel_id)
             channel_config = self._bot.get_configuration(self._channel_id)
 
@@ -41,14 +39,8 @@ class ChannelConfigurationCommand(Command):
 
     def get_config_schema(self) -> Response:
         schema = BaseChannelConfig.get_config_schema()
-        json_schema = {
-            k: v
-            for k, v in schema.json_schema(self._channel_id).items()
-            if not k.startswith("$")
-        }
-        return self.get_response_with_command(
-            f"```{yaml.dump(json_schema, indent=2)}```"
-        )
+        json_schema = {k: v for k, v in schema.json_schema(self._channel_id).items() if not k.startswith("$")}
+        return self.get_response_with_command(f"```{yaml.dump(json_schema, indent=2)}```")
 
     async def handle(self) -> Response:
         logger.info(f"Handling {self._command}")
@@ -57,17 +49,11 @@ class ChannelConfigurationCommand(Command):
             return self.get_config_schema()
 
         if self._command_args and self._command_args[0] == "refresh":
-            if not await self._bot.try_load_configurations_from_history(
-                self._channel_id
-            ):
-                return self.get_response_with_command(
-                    "Invalid or missing channel configuration"
-                )
+            if not await self._bot.try_load_configurations_from_history(self._channel_id):
+                return self.get_response_with_command("Invalid or missing channel configuration")
 
         return await self.get_configuration_link()
 
     @classmethod
     def get_arguments_info(cls) -> Dict[str, str]:
-        return {
-            "schema": "Get the configurations schema in yaml format. /bugmaster config schema"
-        }
+        return {"schema": "Get the configurations schema in yaml format. /bugmaster config schema"}

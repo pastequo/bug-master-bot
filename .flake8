@@ -1,0 +1,23 @@
+[flake8]
+ignore =
+    # E203 and W503 are rules that conflict with Black
+    E203,
+    W503,
+
+    # B024 abstract base class with no abstract methods
+    B024,
+
+    B010,
+
+    # FS003 weirdly thinks things are supposed to be f-strings? Seems completely broken
+    FS003,
+
+    # ignoring cases of methods in abstract class that are left empty (with 'pass')
+    # linter prefers having it reimplemented in inheriting classes
+    B027,
+
+    # ignoring suggestion of {str!r} instead of '{str}'
+    B028,
+
+max-line-length = 120
+max-complexity = 18

@@ -24,9 +24,7 @@ class BugMasterBot:
         signing_secret: str,
         loop: AbstractEventLoop = None,
     ) -> None:
-        self._sm_client = SocketModeClient(
-            app_token=app_token, web_client=AsyncWebClient(bot_token)
-        )
+        self._sm_client = SocketModeClient(app_token=app_token, web_client=AsyncWebClient(bot_token))
         self._verifier = signature.SignatureVerifier(signing_secret)
         self._loop = loop or asyncio.get_event_loop()
         self._bot_token = bot_token
@@ -62,22 +60,15 @@ class BugMasterBot:
     def has_channel_configurations(self, channel_id: str):
         return channel_id in self._config
 
-    async def add_reaction(
-        self, channel: str, emoji: str, ts: str
-    ) -> AsyncSlackResponse:
+    async def add_reaction(self, channel: str, emoji: str, ts: str) -> AsyncSlackResponse:
         try:
-            return await self._web_client.reactions_add(
-                channel=channel, name=emoji, timestamp=ts
-            )
+            return await self._web_client.reactions_add(channel=channel, name=emoji, timestamp=ts)
         except slack_sdk.errors.SlackApiError as e:
             if e.response.data.get("error") == "invalid_name":
-                logger.warning(
-                    f"Invalid configuration on channel {channel}. {e}, reaction={emoji}"
-                )
+                logger.warning(f"Invalid configuration on channel {channel}. {e}, reaction={emoji}")
                 return await self.add_comment(
                     channel,
-                    f"Invalid reaction `:{emoji}:`."
-                    " Please check your configuration file",
+                    f"Invalid reaction `:{emoji}:`." " Please check your configuration file",
                     ts,
                 )
             if e.response.data.get("error") == "already_reacted":
@@ -101,9 +92,7 @@ class BugMasterBot:
             attachments=attachments,
         )
 
-    async def update_comment(
-        self, channel: str, comment: str, ts: str
-    ) -> AsyncSlackResponse:
+    async def update_comment(self, channel: str, comment: str, ts: str) -> AsyncSlackResponse:
         return await self._web_client.chat_update(channel=channel, text=comment, ts=ts)
 
     async def add_ephemeral_comment(
@@ -161,15 +150,11 @@ class BugMasterBot:
         try:
             await bmc.load(self._bot_token)
             res = True
-            logger.info(
-                f"Configuration file loaded successfully with {len(self._config.get(channel, []))} entries"
-            )
+            logger.info(f"Configuration file loaded successfully with {len(self._config.get(channel, []))} entries")
         except (SchemaError, ScannerError) as e:
             # if not from_history:
             self._config[channel] = bmc
-            await self.add_comment(
-                channel, "BugMasterBot configuration file is invalid"
-            )
+            await self.add_comment(channel, "BugMasterBot configuration file is invalid")
             if user_id:
                 await self.add_comment(
                     user_id,
@@ -191,9 +176,7 @@ class BugMasterBot:
         return res
 
     def start(self) -> "BugMasterBot":
-        logger.info(
-            "Starting bug_master bot - attempting connect to Slack’s APIs using WebSockets ..."
-        )
+        logger.info("Starting bug_master bot - attempting connect to Slack’s APIs using WebSockets ...")
         try:
             self._loop.run_until_complete(self._sm_client.connect())
             logger.info("Connected to bot Slack’s APIs")
@@ -216,16 +199,10 @@ class BugMasterBot:
             logger.warning("Can't auth bot web_client")
 
     async def try_load_configurations_from_history(self, channel: str) -> bool:
-        res = await self._web_client.files_list(
-            channel=channel, types=ChannelFileConfig.SUPPORTED_FILETYPE
-        )
-        is_conf_valid = await self.refresh_file_configuration(
-            channel, res.data.get("files", []), from_history=True
-        )
+        res = await self._web_client.files_list(channel=channel, types=ChannelFileConfig.SUPPORTED_FILETYPE)
+        is_conf_valid = await self.refresh_file_configuration(channel, res.data.get("files", []), from_history=True)
         if is_conf_valid:
-            logger.info(
-                f"Configurations loaded successfully from channel history for channel {channel}"
-            )
+            logger.info(f"Configurations loaded successfully from channel history for channel {channel}")
         return is_conf_valid
 
     async def get_file_info(self, file_id: str) -> dict:
@@ -256,26 +233,20 @@ class BugMasterBot:
         res = await self._web_client.conversations_history(
             channel=channel_id, limit=messages_count, cursor=cursor, oldest=oldest
         )
-        return res.data.get("messages", []), res.data.get("response_metadata", {}).get(
-            "next_cursor"
-        )
+        return res.data.get("messages", []), res.data.get("response_metadata", {}).get("next_cursor")
 
     async def get_all_messages(self, channel_id: str, since: float = 0):
         messages = []
         cursor = None
         while True:
-            messages_chunk, cursor = await self.get_messages(
-                channel_id, messages_count=20, cursor=cursor, oldest=since
-            )
+            messages_chunk, cursor = await self.get_messages(channel_id, messages_count=20, cursor=cursor, oldest=since)
             messages += messages_chunk
             if cursor is None:
                 break
 
         return messages
 
-    async def get_channel_configuration(
-        self, channel_id: str, channel_name: str
-    ) -> ChannelFileConfig:
+    async def get_channel_configuration(self, channel_id: str, channel_name: str) -> ChannelFileConfig:
         if not self.has_channel_configurations(channel_id):
             await self.try_load_configurations_from_history(channel_id)
 
@@ -290,6 +261,4 @@ class BugMasterBot:
         return self.get_configuration(channel_id)
 
     async def users_conversations(self, user: str = None, types: str = None):
-        return await self._sm_client.web_client.users_conversations(
-            user=user, types=types
-        )
+        return await self._sm_client.web_client.users_conversations(user=user, types=types)

@@ -15,9 +15,7 @@ class StatisticsCommand(Command):
 
     def __init__(self, bot: BugMasterBot, **kwargs) -> None:
         super().__init__(bot, **kwargs)
-        self._history_days = (
-            self._command_args[0] if self._command_args else self.DEFAULT_STAT_HISTORY
-        )
+        self._history_days = self._command_args[0] if self._command_args else self.DEFAULT_STAT_HISTORY
 
     @classmethod
     def command(cls):
@@ -41,13 +39,9 @@ class StatisticsCommand(Command):
     def get_stats(self, days: int) -> Tuple[str, int]:
         counter = Counter()
         today = datetime.date.today()
-        # start_time = today - datetime.timedelta(days=days)
 
         min_date = datetime.datetime.now()
         logger.info(f"Getting statistics from database for {days} days")
-        # for job in MessageEvent.select(channel=self._channel_id, since=start_time):
-        #     min_date = job.time if job.time < min_date else min_date
-        #     counter[job.job_name] += 1
 
         logger.info(f"Loaded {len(counter)} failures from jobs table")
         sorted_counter = [list(job) for job in counter.most_common()]
@@ -79,9 +73,5 @@ class StatisticsCommand(Command):
 
         stats, days = self.get_stats(days)
         if not stats:
-            return self.get_response_with_command(
-                f"There are no records for this channel in the last {days} days."
-            )
-        return self.get_response_with_command(
-            f"Statistics for the last {days} days:\n```{stats}```"
-        )
+            return self.get_response_with_command(f"There are no records for this channel in the last {days} days.")
+        return self.get_response_with_command(f"Statistics for the last {days} days:\n```{stats}```")

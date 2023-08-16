@@ -24,9 +24,7 @@ class EventHandler:
 
         event = body.get("event")
         if event.get("thread_ts"):
-            raise NotSupportedEventError(
-                "Event of type thread comment is not supported"
-            )
+            raise NotSupportedEventError("Event of type thread comment is not supported")
 
         event_type = event.get("type", None), event.get("subtype", "")
         if event_type not in SupportedEvents.get_events_map().keys():
@@ -46,9 +44,7 @@ class EventHandler:
         return factory(body, self._bot)
 
     @classmethod
-    def get_event_factory(
-        cls, event_type: str, event_subtype: str
-    ) -> Union[Type[Event], None]:
+    def get_event_factory(cls, event_type: str, event_subtype: str) -> Union[Type[Event], None]:
         events_factory = SupportedEvents.get_events_map()
         if (event_type, event_subtype) in events_factory.keys():
             return events_factory.get((event_type, event_subtype), None)

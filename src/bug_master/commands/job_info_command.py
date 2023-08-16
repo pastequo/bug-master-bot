@@ -28,9 +28,7 @@ class JobInfoCommand(Command):
         return "Get last job records status"
 
     async def handle(self) -> Response:
-        logger.info(
-            f"Starting report task user={self.user_id} channel={self._channel_id}:{self._channel_name}"
-        )
+        logger.info(f"Starting report task user={self.user_id} channel={self._channel_id}:{self._channel_name}")
         self._task = asyncio.get_event_loop().create_task(self._create_drop_down_menu())
         return self.get_response_with_command("Loading jobs drop down menu..")
 
@@ -46,9 +44,7 @@ class JobInfoCommand(Command):
                 f"user={self.user_id} channel={self._channel_id}:{self._channel_name}"
             )
 
-            config = await self._bot.get_channel_configuration(
-                self._channel_id, self._channel_name
-            )
+            config = await self._bot.get_channel_configuration(self._channel_id, self._channel_name)
             if config is None:
                 return None
 
@@ -64,9 +60,7 @@ class JobInfoCommand(Command):
                 "\n  ...\n```",
             )
 
-            logger.info(
-                f"Missing job-info configurations for channel {self._channel_name}:{self._channel_id}"
-            )
+            logger.info(f"Missing job-info configurations for channel {self._channel_name}:{self._channel_id}")
             return None
 
         return config
@@ -82,15 +76,11 @@ class JobInfoCommand(Command):
         )
 
         drop_down = JobsDropDown(self._bot)
-        attachments = await drop_down.get_drop_down(
-            channel_config=config, next_id=DaysRangeDropDown.callback_id()
-        )
+        attachments = await drop_down.get_drop_down(channel_config=config, next_id=DaysRangeDropDown.callback_id())
         drop_down_comment = await self._bot.add_comment(
             self._user_id, "Select job from the drop down menu", attachments=attachments
         )
-        user_bot_conversations = await self._bot.users_conversations(
-            user=self._user_id, types="im"
-        )
+        user_bot_conversations = await self._bot.users_conversations(user=self._user_id, types="im")
 
         permlink = "on the user-bot conversation under `Apps` section (below `Direct Messages`."
         for c in user_bot_conversations.data.get("channels", []):
@@ -98,13 +88,7 @@ class JobInfoCommand(Command):
                 permlink = f"<{self._bot.org_url}archives/{c_id} | here>"
                 break
 
-        message = (
-            "| "
-            + drop_down_comment.data.get("message", {}).get("text", "")
-            + "\n"
-            + "=" * 10
-            + "\n"
-        )
+        message = "| " + drop_down_comment.data.get("message", {}).get("text", "") + "\n" + "=" * 10 + "\n"
         ephemeral_comment = await self._bot.add_ephemeral_comment(
             self._channel_id,
             self._user_id,

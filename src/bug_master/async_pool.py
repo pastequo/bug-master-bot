@@ -8,9 +8,7 @@ class AsyncPool:
         self._has_done = False
         self._tasks = asyncio.Queue()
         self._results = asyncio.Queue()
-        self._workers = [
-            asyncio.create_task(self._worker()) for _ in range(self._pool_size)
-        ]
+        self._workers = [asyncio.create_task(self._worker()) for _ in range(self._pool_size)]
 
     async def _worker(self):
         while self._results.qsize() < self._pool_size:
@@ -18,9 +16,7 @@ class AsyncPool:
             result = await coroutine(**kwargs)
             await self._results.put({worker_id: result})
 
-    async def add_worker(
-        self, worker_id: Union[str, int], coroutine: Callable, **kwargs
-    ):
+    async def add_worker(self, worker_id: Union[str, int], coroutine: Callable, **kwargs):
         await self._tasks.put((worker_id, coroutine, kwargs))
 
     async def start(self):

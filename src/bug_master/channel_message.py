@@ -33,12 +33,8 @@ class ChannelMessage:
         if self.is_bot_name_in_message():
             return False
 
-        if not self._text or not self._text.replace(" ", "").startswith(
-            consts.EVENT_FAILURE_PREFIX
-        ):
-            logger.info(
-                f"Ignoring messages that do not start with {consts.EVENT_FAILURE_PREFIX}"
-            )
+        if not self._text or not self._text.replace(" ", "").startswith(consts.EVENT_FAILURE_PREFIX):
+            logger.info(f"Ignoring messages that do not start with {consts.EVENT_FAILURE_PREFIX}")
             return True
 
         return False
@@ -46,24 +42,16 @@ class ChannelMessage:
     def _get_links(self) -> List[str]:
         """Get all links from a given message text"""
         pattern = r"https://?[\w/\-?=%.]+\.[\w/\-&?=%.]+"
-        urls = [
-            url
-            for url in re.findall(pattern, self._text)
-            if url.startswith(ProwJobFailure.MAIN_PAGE_URL)
-        ]
+        urls = [url for url in re.findall(pattern, self._text) if url.startswith(ProwJobFailure.MAIN_PAGE_URL)]
 
         logger.debug(f"Found {len(urls)} urls in message {self._text}")
         return urls
 
-    async def get_message_actions(
-        self, channel_config: ChannelFileConfig, filter_id: str = None
-    ):
+    async def get_message_actions(self, channel_config: ChannelFileConfig, filter_id: str = None):
         actions = list()
 
         for link in self._get_links():
             if (failure := await ProwJobFailure(link, self._ts).load()) is not None:
-                actions += await failure.get_failure_actions(
-                    self._channel_id, channel_config, filter_id
-                )
+                actions += await failure.get_failure_actions(self._channel_id, channel_config, filter_id)
 
         return actions

@@ -1,9 +1,5 @@
 from bug_master.events.channel_join_event import ChannelJoinEvent
-from bug_master.events.file_events import (
-    FileChangeEvent,
-    FileDeletedEvent,
-    FileShareEvent,
-)
+from bug_master.events.file_events import FileChangeEvent, FileDeletedEvent, FileShareEvent
 from bug_master.events.message_channel_event import MessageChannelEvent
 from bug_master.events.url_verification_event import UrlVerificationEvent
 

@@ -1,7 +1,5 @@
 from bug_master.commands.apply_command import ApplyCommand
-from bug_master.commands.channel_configuration_command import (
-    ChannelConfigurationCommand,
-)
+from bug_master.commands.channel_configuration_command import ChannelConfigurationCommand
 from bug_master.commands.filterby_command import FilterByCommand
 from bug_master.commands.help_command import HelpCommand
 from bug_master.commands.job_info_command import JobInfoCommand

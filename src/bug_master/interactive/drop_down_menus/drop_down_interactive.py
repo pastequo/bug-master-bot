@@ -68,9 +68,7 @@ class DropDownInteractive(InteractiveMessage, ABC):
         ]
 
     @classmethod
-    def get_new_action(
-        cls, name: str, text: str, type_: str = "select", options: List[str] = None
-    ):
+    def get_new_action(cls, name: str, text: str, type_: str = "select", options: List[str] = None):
         return {
             "name": name,
             "text": text,

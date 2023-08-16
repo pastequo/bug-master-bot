@@ -40,9 +40,7 @@ class BaseChannelConfig:
                     Optional("file_path"): str,
                     Optional("job_name"): str,
                     Optional("ignore_others"): bool,
-                    Optional("conditions"): [
-                        {Optional("contains"): str, Optional("file_path"): str}
-                    ],
+                    Optional("conditions"): [{Optional("contains"): str, Optional("file_path"): str}],
                     Optional("assignees"): {
                         Optional("disable_auto_assign"): bool,
                         Optional("issue_url"): str,
@@ -80,9 +78,7 @@ class BaseChannelConfig:
             return True
         except (SchemaError, AssertionError) as e:
             logger.info("Schema validation failed")
-            raise SchemaError(
-                f"Failed to validate channel configuration: {content}"
-            ) from e
+            raise SchemaError(f"Failed to validate channel configuration: {content}") from e
 
 
 class ChannelFileConfig(BaseChannelConfig):
@@ -95,9 +91,7 @@ class ChannelFileConfig(BaseChannelConfig):
 
         filetype = file_info["filetype"]
         if filetype not in self.SUPPORTED_FILETYPE:
-            raise TypeError(
-                f"Invalid file type. Got {filetype} expected to be one of {self.SUPPORTED_FILETYPE}"
-            )
+            raise TypeError(f"Invalid file type. Got {filetype} expected to be one of {self.SUPPORTED_FILETYPE}")
 
         self._title = file_info["title"]
         self._filetype = filetype
@@ -111,11 +105,7 @@ class ChannelFileConfig(BaseChannelConfig):
     @property
     def disable_auto_assign(self):
         return (
-            self._assignees.get(
-                "disable_auto_assign", consts.DISABLE_AUTO_ASSIGN_DEFAULT
-            )
-            if self._assignees
-            else False
+            self._assignees.get("disable_auto_assign", consts.DISABLE_AUTO_ASSIGN_DEFAULT) if self._assignees else False
         )
 
     @property
@@ -158,7 +148,7 @@ class ChannelFileConfig(BaseChannelConfig):
         content = {}
         headers = None
         if self._remote_url is None:
-            headers = {"Authorization": "Bearer %s" % bot_token}
+            headers = {"Authorization": f"Bearer {bot_token}"}
 
         if (raw_content := await Utils.get_file_content(url, headers)) is None:
             return {}
@@ -170,11 +160,7 @@ class ChannelFileConfig(BaseChannelConfig):
         else:
             logger.warning("Invalid configuration file found")
 
-        if (
-            self._remote_url is None
-            and (remote_configurations := content.get("remote_configurations"))
-            is not None
-        ):
+        if self._remote_url is None and (remote_configurations := content.get("remote_configurations")) is not None:
             self._remote_url = remote_configurations.get("url")
             logger.info(f"Loading remote configurations {self._remote_url}")
             return await self._get_file_content(bot_token, self._remote_url)

@@ -57,23 +57,15 @@ class MessageChannelEvent(Event):
             )
             return JSONResponse({"msg": "Success", "Code": 200})
 
-        if (
-            not self._data.get("text", "")
-            .replace(" ", "")
-            .startswith(consts.EVENT_FAILURE_PREFIX)
-        ):
-            logger.info(
-                f"Ignoring messages that do not start with {consts.EVENT_FAILURE_PREFIX}"
-            )
+        if not self._data.get("text", "").replace(" ", "").startswith(consts.EVENT_FAILURE_PREFIX):
+            logger.info(f"Ignoring messages that do not start with {consts.EVENT_FAILURE_PREFIX}")
             return JSONResponse({"msg": "Success", "Code": 200})
 
         return None
 
     async def skip_event(self, channel_name: str):
         if self.is_self_event:
-            logger.info(
-                f"Skipping event on {channel_name} sent by {self._bot.bot_id}:{self._bot.name} - {self}"
-            )
+            logger.info(f"Skipping event on {channel_name} sent by {self._bot.bot_id}:{self._bot.name} - {self}")
             return True
 
         if self._message.neglect_event(channel_name):
@@ -93,11 +85,7 @@ class MessageChannelEvent(Event):
             return JSONResponse({"msg": "Success", "Code": 200})
 
         logger.info(f"Handling event {self}")
-        if (
-            channel_config := await self._bot.get_channel_configuration(
-                self._channel_id, channel_name
-            )
-        ) is None:
+        if (channel_config := await self._bot.get_channel_configuration(self._channel_id, channel_name)) is None:
             return JSONResponse({"msg": "Failure", "Code": 401})
 
         await self._handle_failure_actions(channel_config)
@@ -106,17 +94,11 @@ class MessageChannelEvent(Event):
     async def _handle_failure_actions(self, channel_config: ChannelFileConfig):
         with suppress(IndexError):
             actions = await self._message.get_message_actions(channel_config)
-            ignore_others = (
-                len([action for action in actions if action.ignore_others]) > 0
-            )
+            ignore_others = len([action for action in actions if action.ignore_others]) > 0
             logger.debug(f"Adding comments={[action.comment for action in actions]}")
             logger.debug(f"Adding reactions={[action.reaction for action in actions]}")
-            await self.add_reactions(
-                [action for action in actions if action.reaction], ignore_others
-            )
-            await self.add_comments(
-                [action for action in actions if action.comment], ignore_others
-            )
+            await self.add_reactions([action for action in actions if action.reaction], ignore_others)
+            await self.add_comments([action for action in actions if action.comment], ignore_others)
 
     @classmethod
     def filter_ignore_others(cls, actions: List[Action], ignore_others: bool = False):
@@ -125,12 +107,8 @@ class MessageChannelEvent(Event):
 
     async def add_reactions(self, actions: List[Action], ignore_others: bool = False):
         for action in self.filter_ignore_others(actions, ignore_others):
-            logger.debug(
-                f"Adding reactions to channel {self._channel_id} for ts {self._ts}"
-            )
-            await self._bot.add_reaction(
-                self._channel_id, action.reaction.emoji, self._ts
-            )
+            logger.debug(f"Adding reactions to channel {self._channel_id} for ts {self._ts}")
+            await self._bot.add_reaction(self._channel_id, action.reaction.emoji, self._ts)
 
     async def add_comments(self, actions: List[Action], ignore_others: bool = False):
         for action in sorted(
@@ -138,9 +116,5 @@ class MessageChannelEvent(Event):
             key=lambda a: a.comment.type.value,
             reverse=True,
         ):
-            logger.debug(
-                f"Adding comment in channel {self._channel_id} for ts {self._ts}"
-            )
-            await self._bot.add_comment(
-                self._channel_id, action.comment.text, self._ts, action.comment.parse
-            )
+            logger.debug(f"Adding comment in channel {self._channel_id} for ts {self._ts}")
+            await self._bot.add_comment(self._channel_id, action.comment.text, self._ts, action.comment.parse)

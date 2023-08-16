@@ -15,17 +15,12 @@ class CommandHandler:
     def validate_command_body(cls, body: dict) -> str:
         if body.get("text") is None:
             raise NotSupportedCommandError(
-                "Hello, How can I help you? For more info you can"
-                " always write `/bugmaster help`.",
+                "Hello, How can I help you? For more info you can" " always write `/bugmaster help`.",
                 command="",
             )
         command, _ = Command.get_command(body.get("text"))
         supported_commands = SupportedCommands.get_commands_map()
-        if (
-            not command
-            or command not in supported_commands
-            or not supported_commands.get(command).is_enabled()
-        ):
+        if not command or command not in supported_commands or not supported_commands.get(command).is_enabled():
             raise NotSupportedCommandError(
                 f"Command `{command}` is not supported. Available commands:\n"
                 f"```{HelpCommand.get_commands_info()}```",

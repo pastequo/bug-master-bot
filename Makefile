@@ -17,6 +17,9 @@ install-lint:
 
 full-install: install install-lint
 
+flake8:
+	flake8 src/
+
 format:
 	black src/
 	isort --profile black src
@@ -24,7 +27,7 @@ format:
 lint-manifest:
 	oc process --local=true -f openshift/template.yaml --param IMAGE_TAG=foobar | oc apply --dry-run=client -f -
 
-lint: format
+lint: flake8 format
 	git diff --exit-code
 
-.PHONY: install install-lint full-install format lint lint-manifest build-image
+.PHONY: install install-lint full-install format flake8 lint lint-manifest build-image

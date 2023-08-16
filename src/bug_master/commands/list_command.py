@@ -25,12 +25,8 @@ class ListCommand(Command):
         if len(self._command_args) == 0 or len(self._command_args) > 2:
             raise NotSupportedCommandError("Command is not supported")
 
-        self._list_command = (
-            self._command_args[0] if len(self._command_args) >= 1 else None
-        )
-        self._tests_amount = (
-            self._command_args[1] if len(self._command_args) >= 2 else None
-        )
+        self._list_command = self._command_args[0] if len(self._command_args) >= 1 else None
+        self._tests_amount = self._command_args[1] if len(self._command_args) >= 2 else None
 
     @classmethod
     def command(cls):
@@ -49,18 +45,12 @@ class ListCommand(Command):
 
     async def handle(self) -> Response:
         if self._list_command != ListCommands.LIST_JOBS.value:
-            return self.get_response_with_command(
-                f"Invalid list command. {self._list_command}: command not found..."
-            )
+            return self.get_response_with_command(f"Invalid list command. {self._list_command}: command not found...")
 
         if (config := self._bot.get_configuration(self._channel_id)) is None:
-            config = await self._bot.get_channel_configuration(
-                self._channel_id, self._channel_name
-            )
+            config = await self._bot.get_channel_configuration(self._channel_id, self._channel_name)
             if config is None:
-                return self.get_response_with_command(
-                    "Invalid or missing channel configuration"
-                )
+                return self.get_response_with_command("Invalid or missing channel configuration")
 
         return await self.handle_list_job_command(config)
 
@@ -75,27 +65,18 @@ class ListCommand(Command):
 
         except ValueError:
             return self.get_response_with_command(
-                "Invalid tests amount. Expected positive int between 1 to 20,"
-                f"got {self._tests_amount}"
+                "Invalid tests amount. Expected positive int between 1 to 20," f"got {self._tests_amount}"
             )
 
-        asyncio.get_event_loop().create_task(
-            self._handle_jobs_history_report(config, tests_amount)
-        )
+        asyncio.get_event_loop().create_task(self._handle_jobs_history_report(config, tests_amount))
         return self.get_response_with_command("Loading jobs list...")
 
-    async def _handle_jobs_history_report(
-        self, config, tests_amount: int = DEFAULT_TESTS_AMOUNT
-    ):
+    async def _handle_jobs_history_report(self, config, tests_amount: int = DEFAULT_TESTS_AMOUNT):
         tasks = []
         results = []
 
         for job in await Utils.get_jobs(config.prow_configurations):
-            tasks.append(
-                asyncio.get_event_loop().create_task(
-                    self._load_job_history_data(results, job, tests_amount)
-                )
-            )
+            tasks.append(asyncio.get_event_loop().create_task(self._load_job_history_data(results, job, tests_amount)))
 
         while True:
             if all([task.done() for task in tasks]):
@@ -112,20 +93,14 @@ class ListCommand(Command):
         for action in config.actions_items():
             pattern = r"https://issues?[\w/\-?=%.]+\.[\w/\-&?=%.]+\d"
             if action.get("job_name"):
-                issues = list(
-                    set(url for url in re.findall(pattern, action.get("text", "")))
-                )
+                issues = list(set(url for url in re.findall(pattern, action.get("text", ""))))
                 if len(issues) > 0:
-                    issues_data[action.get("job_name")] = issues[
-                        0
-                    ]  # get only first issue
+                    issues_data[action.get("job_name")] = issues[0]  # get only first issue
 
         return issues_data
 
     @classmethod
-    def _get_list_jobs_success_rate_table(
-        cls, results: List[Tuple[str, int, int, bool]], config
-    ) -> str:
+    def _get_list_jobs_success_rate_table(cls, results: List[Tuple[str, int, int, bool]], config) -> str:
         jobs_data = []
         if not results:
             return "Can't find any jobs"
@@ -136,14 +111,11 @@ class ListCommand(Command):
                 continue
 
             issue_placeholder = ""
-            short_job_name = (
-                f"{re.split('(?=e2e)', job_name).pop().replace('-periodic', '')}"
-            )
+            short_job_name = f"{re.split('(?=e2e)', job_name).pop().replace('-periodic', '')}"
             jobs_with_issues = [
                 issue_
                 for k, issue_ in issue_data.items()
-                if k.endswith(short_job_name)
-                or k.endswith(short_job_name + "-periodic")
+                if k.endswith(short_job_name) or k.endswith(short_job_name + "-periodic")
             ]
 
             if len(jobs_with_issues) > 0:
@@ -154,8 +126,7 @@ class ListCommand(Command):
             jobs_data.append(
                 (
                     short_job_name,
-                    f"{success_rate:.2f}% ({succeeded_jobs}/{total_jobs})"
-                    + last_failed,
+                    f"{success_rate:.2f}% ({succeeded_jobs}/{total_jobs})" + last_failed,
                     issue_placeholder,
                     success_rate,
                     job_name,
@@ -202,9 +173,7 @@ class ListCommand(Command):
         return "\n".join(headers + rows_data)
 
     @classmethod
-    async def _load_job_history_data(
-        cls, result: List[Tuple[str, int, int, bool]], job_name: str, tests_amount: int
-    ):
+    async def _load_job_history_data(cls, result: List[Tuple[str, int, int, bool]], job_name: str, tests_amount: int):
         jobs = await Utils.get_job_history(job_name)
 
         jobs = jobs[: min(tests_amount, len(jobs))]

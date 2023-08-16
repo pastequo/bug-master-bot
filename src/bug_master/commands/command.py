@@ -58,10 +58,7 @@ class Command(ABC):
         pass
 
     def get_response_with_command(self, text: str) -> Response:
-        text = (
-            f"```$ /bugmaster {self.command()} {' '.join(self._command_args)}```\n"
-            + text
-        )
+        text = f"```$ /bugmaster {self.command()} {' '.join(self._command_args)}```\n" + text
         return JSONResponse({"response_type": "ephemeral", "text": text})
 
     @classmethod

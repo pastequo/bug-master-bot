@@ -28,9 +28,7 @@ class SlackRoute(APIRoute):
         original_route_handler = super().get_route_handler()
 
         async def custom_route_handler(request: Request) -> Response:
-            return await original_route_handler(
-                SlackRequest(request.scope, request.receive)
-            )
+            return await original_route_handler(SlackRequest(request.scope, request.receive))
 
         return custom_route_handler
 
@@ -41,17 +39,13 @@ async def validate_request(request):
 
     is_request_valid = _signature_verifier.is_valid_request(body, headers)
     if not is_request_valid:
-        consts.logger.warning(
-            f"Got invalid request, {request.method} {headers} {request.scope} {body}"
-        )
+        consts.logger.warning(f"Got invalid request, {request.method} {headers} {request.scope} {body}")
         return None, None
 
     return body, headers
 
 
-async def exceptions_middleware(
-    request: Request, call_next: RequestResponseEndpoint
-) -> Response:
+async def exceptions_middleware(request: Request, call_next: RequestResponseEndpoint) -> Response:
     try:
         body, headers = await validate_request(request)
 

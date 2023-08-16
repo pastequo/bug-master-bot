@@ -50,12 +50,8 @@ class ApplyCommand(Command):
             return self.get_response_with_command(
                 f"Invalid number of messages to read, got `{self._command_args[0]}`. Positive integer is required."
             )
-        messages, _cursor = await self._bot.get_messages(
-            self._channel_id, messages_count
-        )
-        logger.info(
-            f"Got {len(messages)} form channel {self._channel_id}:{self._channel_name}, creating task ..."
-        )
+        messages, _cursor = await self._bot.get_messages(self._channel_id, messages_count)
+        logger.info(f"Got {len(messages)} form channel {self._channel_id}:{self._channel_name}, creating task ...")
         self._task = asyncio.get_event_loop().create_task(self.update_task(messages))
         return self.get_response_with_command(
             f"Updating process is in progress, this might take a few minutes to finish.\n"
@@ -76,11 +72,7 @@ class ApplyCommand(Command):
         tasks = []
 
         for message in messages:
-            if (
-                not message.get("text", "")
-                .strip()
-                .startswith(consts.EVENT_FAILURE_PREFIX)
-            ):
+            if not message.get("text", "").strip().startswith(consts.EVENT_FAILURE_PREFIX):
                 logger.debug(
                     f"Skipping message due to it's not starting with {consts.EVENT_FAILURE_PREFIX} "
                     f"{message['text']}"
@@ -88,9 +80,7 @@ class ApplyCommand(Command):
                 continue
 
             if self._is_already_handled(message):
-                logger.debug(
-                    f"Skipping message due to it was already handled\n{message}"
-                )
+                logger.debug(f"Skipping message due to it was already handled\n{message}")
                 continue
 
             logger.info(f"Handling unhandled message {message}")
@@ -110,9 +100,7 @@ class ApplyCommand(Command):
             channel_info = await mce.get_channel_info()
 
             await asyncio.sleep(1)
-            task = asyncio.get_event_loop().create_task(
-                mce.handle(channel_info=channel_info)
-            )
+            task = asyncio.get_event_loop().create_task(mce.handle(channel_info=channel_info))
             tasks.append(task)
 
         logger.info(f"Waiting for {len(tasks)} background tasks to finish.")
@@ -123,6 +111,5 @@ class ApplyCommand(Command):
             await asyncio.sleep(2)
 
         logger.info(
-            f"Finished background task for handling {len(messages)} messages. "
-            f"Total actions needed {len(tasks)}."
+            f"Finished background task for handling {len(messages)} messages. " f"Total actions needed {len(tasks)}."
         )

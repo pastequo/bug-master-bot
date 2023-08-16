@@ -35,29 +35,20 @@ class InteractiveResponse:
         if len(callback_ids) > 1:
             next_callback_id = callback_ids[1]
             logger.info(
-                f"Getting next interactive next chain response {self._channel_id}, "
-                f"callbacks={next_callback_id}"
+                f"Getting next interactive next chain response {self._channel_id}, " f"callbacks={next_callback_id}"
             )
             job_name = self._actions[0].get("selected_options")[0].get("value")
-            logger.info(
-                f"Getting next interactive next chain response {self._channel_id}, callbacks={callback_ids}"
-            )
-            attachments = await InteractiveFlowHandler.get_next(
-                next_callback_id
-            ).get_drop_down(job_name=job_name)
+            logger.info(f"Getting next interactive next chain response {self._channel_id}, callbacks={callback_ids}")
+            attachments = await InteractiveFlowHandler.get_next(next_callback_id).get_drop_down(job_name=job_name)
             next_message["attachments"] = attachments
             return JSONResponse(next_message)
 
-        logger.info(
-            f"Getting final interactive response {self._channel_id}, callbacks={callback_ids}"
-        )
+        logger.info(f"Getting final interactive response {self._channel_id}, callbacks={callback_ids}")
         return JSONResponse({"text": await self._get_final_response()})
 
     async def _get_final_response(self):
         logger.info(f"Getting final response {self._channel_id}")
-        selected_items = (
-            self._actions[0].get("selected_options")[0].get("value").split("|")
-        )
+        selected_items = self._actions[0].get("selected_options")[0].get("value").split("|")
         days, job_name = int(selected_items[0]), selected_items[1]
 
         logger.info(f"Getting job history {self._channel_id} job_name={job_name}")
