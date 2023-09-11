@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin
 
@@ -14,6 +15,16 @@ from bug_master.utils import Utils
 
 
 @dataclass
+class ClusterDirData:
+    install_config: str = None
+    metadata: str = None
+    must_gather: str = None
+    cluster_logs: str = None
+    cluster_id: str = None
+    events: str = None
+
+
+@dataclass
 class ProwResource:
     full_name: str
     build_id: str
@@ -21,18 +32,22 @@ class ProwResource:
     repo: str
     branch: str
     variant: str = ""
+    job_duration: float = 0.0
     __name: str = ""
 
     @classmethod
     def get_prow_resource(cls, resource: dict) -> "ProwResource":
         labels = resource.get("metadata", {}).get("labels", {})
         spec = resource.get("spec", {})
+        status = resource.get("status", {})
         full_name = spec.get("job")
         organization = labels.get("prow.k8s.io/refs.org", "")
         branch = labels.get("prow.k8s.io/refs.base_ref", "")
         repo = labels.get("prow.k8s.io/refs.repo", "")
         build_id = labels.get("prow.k8s.io/build-id", "")
         variant = ""
+        start_time = datetime.fromisoformat(status.get("startTime"))
+        completion_time = datetime.fromisoformat(status.get("completionTime"))
 
         container_args = spec.get("pod_spec", {}).get("containers", [{}])[0].get("args", [])
         for k, v in [a.replace("--", "").split("=") for a in container_args]:
@@ -40,7 +55,8 @@ class ProwResource:
                 variant = v
                 break
 
-        return ProwResource(full_name, build_id, organization, repo, branch, variant)
+        job_duration = (completion_time - start_time).total_seconds()
+        return ProwResource(full_name, build_id, organization, repo, branch, variant, job_duration)
 
     @property
     def name(self):
@@ -66,6 +82,7 @@ class ProwJobFailure:
         self._storage_link = ""
         self._message_ts = message_ts
         self._resource: Optional[ProwResource] = None
+        self._job_steps = {}
 
     @property
     def url(self):
@@ -93,14 +110,15 @@ class ProwJobFailure:
 
         return None
 
-    async def _parse_files_grid(self, dir_path: str) -> List[Tuple[str, int]] | None:
+    @AsyncTTL(time_to_live=86400, maxsize=1024, skip_args=1)
+    async def _parse_files_grid(self, dir_path: str, build_id: str) -> List[Tuple[str, int]] | None:
         dir_content = await self.get_content(
             dir_path,
             self._storage_link.replace(self.BASE_STORAGE_URL, self.DIRS_STORAGE_URL),
         )
 
         if not dir_content:
-            logger.error(f"Empty dir {dir_path} content. Please check directory path or if prow is up.")
+            logger.error(f"Empty dir {dir_path} content on {build_id}. Please check directory path or if prow is up.")
             return None
 
         # Find all grid rows
@@ -119,10 +137,11 @@ class ProwJobFailure:
                 size = row.select_one(".pure-u-1-5").text.strip()  # Extract file size
                 if file == "..":
                     continue
-                try:
-                    files.append((file, int(size)))
-                except (TypeError, ValueError):
-                    logger.warning(f"Invalid file size, got {size}, expected integer for file {file}")
+
+                if size == "-":
+                    size = 0
+
+                files.append((file, int(size)))
 
         return files
 
@@ -131,7 +150,7 @@ class ProwJobFailure:
         if dir_path.endswith("*"):
             dir_path = dir_path[:-1]
 
-        files = await self._parse_files_grid(dir_path)
+        files = await self._parse_files_grid(dir_path, self._resource.build_id)
         if files is None:
             return None, None
 
@@ -320,4 +339,127 @@ class ProwJobFailure:
             f"{resource.build_id}/",
         )
         self._resource = resource
+        await self._set_job_steps()
         return self
+
+    async def _set_job_steps(self):
+        base_path = f"artifacts/{self.job_name}"
+        steps_dir = await self._parse_files_grid(base_path, self._resource.build_id)
+
+        job_steps = {}
+        for step, _ in steps_dir:
+            content = await self.get_content(f"{base_path}/{step}finished.json", self._storage_link)
+            if not content:
+                logger.warning(f"Can't find content for url='{self._storage_link}/{base_path}/{step}finished.json'")
+                continue
+
+            step_name = step[:-1] if step.endswith("/") else step
+            job_steps[step_name] = json.loads(content)
+            job_steps[step_name]["step_url"] = f"{self._storage_link}{base_path}/{step}"
+
+        self._job_steps = {t[0]: t[1] for t in sorted(job_steps.items(), key=lambda tup: tup[1].get("timestamp"))}
+
+    async def get_generic_action(self):
+        jobs_history = await Utils.get_job_history(self._resource.full_name)
+        last_seven_jobs = [j for j in jobs_history if (datetime.now() - timedelta(days=7)).date() <= j.started.date()]
+        last_three_jobs = [j for j in jobs_history if (datetime.now() - timedelta(days=3)).date() <= j.started.date()]
+
+        msg = f"<{self._raw_link} | {('=' * 3)} {self._resource.name} {('=' * 3)}>\n"
+        msg += (
+            f" {u'•'} Job failed after {Utils.get_formatted_duration(self._resource.job_duration)}.\n"
+            f" {await self.get_formatted_failed_steps()}"
+            f"{await self.get_cluster_formatted_links()}"
+            f" \n*History:*\n"
+            f"``` {u'•'} Number of job failures in the last 3 days: "
+            f"{len([j for j in last_three_jobs if not j.succeeded])}\n"
+            f" {u'•'} Number of job failures in the last 7 days: "
+            f"{len([j for j in last_seven_jobs if not j.succeeded])}```\n"
+            f" Job history can be found <{Utils.get_job_history_link(self._resource.full_name)} | *_here_*>\n"
+        )
+        msg += "\n"
+
+        return Action("", "", self._message_ts, Comment(text=msg, type=CommentType.DEFAULT_COMMENT))
+
+    async def get_test_infra_metadata(self) -> (List[ClusterDirData], str):
+        """Collect job clusters important files that needed for the generic the action"""
+
+        clusters_dir = []
+        build_id = self._resource.build_id
+        common_gather_path = f"artifacts/{self.job_name}/assisted-common-gather/artifacts/"
+        directories = [d for d, size in await self._parse_files_grid(common_gather_path, build_id) if size == 0]
+
+        for directory in directories:
+            try:
+                cluster_data = ClusterDirData()
+                for file, _ in await self._parse_files_grid(f"{common_gather_path}{directory}", build_id):
+                    if file == "metadata.json":
+                        cluster_data.metadata = f"{common_gather_path}{directory}{file}"
+                    elif file == "must-gather.tar":
+                        cluster_data.must_gather = f"{common_gather_path}{directory}{file}"
+                    elif file == "events.html":
+                        cluster_data.events = f"{common_gather_path}{directory}{file}"
+                    elif file.startswith("cluster_") and file.endswith("_logs.tar"):
+                        cluster_data.cluster_logs = f"{common_gather_path}{directory}{file}"
+                        cluster_data.cluster_id = file.split("_")[1]
+
+                for file, _ in await self._parse_files_grid(f"{common_gather_path}{directory}cluster_files/", build_id):
+                    if file == "install-config.yaml":
+                        cluster_data.install_config = f"{common_gather_path}{directory}cluster_files/{file}"
+                        break
+
+                if cluster_data.cluster_id is not None:
+                    clusters_dir.append(cluster_data)
+            except TypeError:
+                pass
+
+        return clusters_dir, f"{common_gather_path}test_infra.log"
+
+    def __get_file_link(self, file_path: str):
+        return (self._storage_link + file_path).replace(self.BASE_STORAGE_URL, self.DIRS_STORAGE_URL)
+
+    async def get_formatted_failed_steps(self) -> str:
+        """Generate and return a formatted string list of all the job failed steps and link to each step directory"""
+        job_steps = self._job_steps.items()
+        failed_steps = [(step, v) for step, v in job_steps if not v.get("passed")]
+        formatted_failed_steps = ""
+
+        if len(failed_steps) > 0:
+            formatted_failed_steps = "\n  - ".join(
+                [
+                    f"<{v.get('step_url').replace(self.BASE_STORAGE_URL, self.DIRS_STORAGE_URL)} | *_{step}_*>"
+                    for step, v in failed_steps
+                ]
+            )
+            formatted_failed_steps = f"{u'•'} *Failed on steps:*\n  - {formatted_failed_steps}\n"
+
+        return formatted_failed_steps
+
+    async def get_cluster_formatted_links(self) -> str:
+        """
+        Generate and return a formatted string that contains links to some of the cluster resources.
+        Current resources are: install-config, cluster metadata, cluster logs (downloadable tar),
+        must-gather (downloadable tar), cluster events (html link).
+        """
+        clusters_data, test_infra_log = await self.get_test_infra_metadata()
+        if len(clusters_data) == 0:
+            return ""
+
+        res = f" {u'•'} *test-infra log* - <{self.__get_file_link(test_infra_log)} | link>\n"
+        res += f"\n*Found {len(clusters_data)} clusters*:\n"
+        i = 1
+        for data in clusters_data:
+            res += f" {i}) Cluster *_{data.cluster_id}_*:\n"
+            if data.install_config is not None:
+                res += f" {u'•'} `Install-config` - <{self.__get_file_link(data.install_config)} | *_link_*>\n"
+            if data.metadata is not None:
+                res += f" {u'•'} `Cluster metadata` - <{self.__get_file_link(data.metadata)} | *_link_*>\n"
+            if data.cluster_logs is not None:
+                res += f" {u'•'} `Cluster logs` - <{self.__get_file_link(data.cluster_logs)} | *_download link_*>\n"
+            if data.must_gather is not None:
+                res += f" {u'•'} `Must gather` - <{self.__get_file_link(data.must_gather)} | *_download link_*>\n"
+            if data.events is not None:
+                res += f" {u'•'} `Cluster events` - <{self.__get_file_link(data.events)} | *_link_*>\n"
+
+            i += 1
+
+        return res

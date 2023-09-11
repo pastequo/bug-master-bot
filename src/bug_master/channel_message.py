@@ -52,6 +52,9 @@ class ChannelMessage:
 
         for link in self._get_links():
             if (failure := await ProwJobFailure(link, self._ts).load()) is not None:
+                if consts.ENABLE_INITIAL_REPORT:
+                    actions += [await failure.get_generic_action()]
                 actions += await failure.get_failure_actions(self._channel_id, channel_config, filter_id)
+            break
 
         return actions

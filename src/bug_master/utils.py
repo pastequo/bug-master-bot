@@ -137,3 +137,16 @@ class Utils(ABC):
 
         logger.info(f"Total jobs found {len(jobs)}")
         return jobs
+
+    @classmethod
+    def get_formatted_duration(cls, seconds_diff: float) -> str:
+        hours = int(seconds_diff // 3600)
+        minutes = int((seconds_diff % 3600) // 60)
+        seconds = int(seconds_diff % 60)
+
+        if seconds_diff >= 3600:
+            return f"{hours:02}h{minutes:02}m{seconds:02}s"
+        elif seconds_diff >= 60:
+            return f"{minutes:02}m:{seconds:02}s"
+        else:
+            return f"{seconds:02}s"

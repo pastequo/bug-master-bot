@@ -5,6 +5,23 @@ import sys
 from loguru import logger
 from uvicorn.config import HTTPProtocolType
 
+
+def strtobool(val):
+    """Convert a string representation of truth to true (1) or false (0).
+
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
+    are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
+    'val' is anything else.
+    """
+    val = val.lower()
+    if val in ("y", "yes", "t", "true", "on", "1"):
+        return 1
+    elif val in ("n", "no", "f", "false", "off", "0"):
+        return 0
+    else:
+        raise ValueError(f"invalid truth value {(val,)}")
+
+
 APP_TOKEN = os.getenv("APP_TOKEN")
 SIGNING_SECRET = os.getenv("SIGNING_SECRET")
 BOT_USER_TOKEN = os.getenv("BOT_USER_TOKEN")
@@ -17,10 +34,10 @@ EVENT_FAILURE_PREFIX = ":red_jenkins_circle:"
 DISABLE_AUTO_ASSIGN_DEFAULT = False
 HTTP_PROTOCOL_TYPE: HTTPProtocolType = os.getenv("HTTP_PROTOCOL_TYPE", default="auto")
 DOWNLOAD_FILE_TIMEOUT = int(os.getenv("DOWNLOAD_FILE_TIMEOUT", default=5))
+ENABLE_INITIAL_REPORT = strtobool(os.getenv("ENABLE_INITIAL_REPORT", default="True"))
 
 MB = 1000000
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", default=30 * MB))
-
 
 if APP_TOKEN is None:
     raise EnvironmentError("Missing app token (APP_TOKEN) environment variable")

@@ -6,6 +6,7 @@ class CommentType(Enum):
     ERROR_INFO = "0"
     ASSIGNEE = "1"
     MORE_INFO = "2"
+    DEFAULT_COMMENT = "3"
 
 
 @dataclass
