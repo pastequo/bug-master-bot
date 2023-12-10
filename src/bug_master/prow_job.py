@@ -50,9 +50,11 @@ class ProwResource:
         completion_time = datetime.fromisoformat(status.get("completionTime"))
 
         container_args = spec.get("pod_spec", {}).get("containers", [{}])[0].get("args", [])
-        for k, v in [a.replace("--", "").split("=") for a in container_args]:
-            if k == "variant":
-                variant = v
+
+        for arg in [a.replace("--", "") for a in container_args]:
+            splitted_arg = arg.split("=")
+            if len(splitted_arg) == 2 and splitted_arg[0] == "variant":
+                variant = splitted_arg[1]
                 break
 
         job_duration = (completion_time - start_time).total_seconds()
