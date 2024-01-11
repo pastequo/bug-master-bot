@@ -71,9 +71,9 @@ class ProwResource:
 
 
 class ProwJobFailure:
-    BASE_STORAGE_URL = "https://storage.googleapis.com/origin-ci-test/logs/"
-    MAIN_PAGE_URL = "https://prow.ci.openshift.org/view/gs/origin-ci-test/logs"
-    DIRS_STORAGE_URL = "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/origin-ci-test/logs/"
+    BASE_STORAGE_URL = f"https://storage.googleapis.com/{consts.CI_BUCKET_NAME}/logs/"
+    MAIN_PAGE_URL = f"https://prow.ci.openshift.org/view/gs/{consts.CI_BUCKET_NAME}/logs"
+    DIRS_STORAGE_URL = f"https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/{consts.CI_BUCKET_NAME}/logs/"
     MIN_FILE_SIZE = 4
 
     def __init__(self, failure_link: str, message_ts: str) -> None:

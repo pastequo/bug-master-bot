@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from cache import AsyncTTL
 from dateutil import parser
 
-from bug_master.consts import DOWNLOAD_FILE_TIMEOUT, logger
+from bug_master.consts import CI_BUCKET_NAME, DOWNLOAD_FILE_TIMEOUT, logger
 
 
 @dataclass
@@ -24,7 +24,7 @@ class JobStatus:
 
 class Utils(ABC):
     GIT_API_FMT = "https://api.github.com/repos/{ORG}/{REPO}/contents/{PATH}"
-    SPYGLASS_JOB_HISTORY_URL_FMT = "https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/{JOB_NAME}"
+    SPYGLASS_JOB_HISTORY_URL_FMT = "https://prow.ci.openshift.org/job-history/gs/{CI_BUCKET_NAME}/logs/{JOB_NAME}"
 
     @classmethod
     async def get_file_content(
@@ -81,7 +81,7 @@ class Utils(ABC):
 
     @classmethod
     def get_job_history_link(cls, job_name: str):
-        return cls.SPYGLASS_JOB_HISTORY_URL_FMT.format(JOB_NAME=job_name)
+        return cls.SPYGLASS_JOB_HISTORY_URL_FMT.format(JOB_NAME=job_name, CI_BUCKET_NAME=CI_BUCKET_NAME)
 
     @classmethod
     @AsyncTTL(time_to_live=360, maxsize=None)

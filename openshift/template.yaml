@@ -40,6 +40,8 @@ objects:
               value: ${RELOAD_RESULTS_DATA}
             - name: HTTP_PROTOCOL_TYPE
               value: ${HTTP_PROTOCOL_TYPE}
+            - name: CI_BUCKET_NAME
+              value: ${CI_BUCKET_NAME}
             - name: SIGNING_SECRET
               valueFrom:
                 secretKeyRef:
@@ -70,7 +72,7 @@ objects:
         targetPort: ${{WEBSERVER_PORT}}
     selector:
       app: bug-master
-           
+
 parameters:
 - name: IMAGE_NAME
   value: "quay.io/app-sre/bug-master"
@@ -100,3 +102,5 @@ parameters:
   value: "bug-master-bot-user-token-key"
 - name: BUG_MASTER_APP_TOKEN_KEY
   value: "bug-master-app-token-key"
+- name: CI_BUCKET_NAME
+  value: "test-platform-results"

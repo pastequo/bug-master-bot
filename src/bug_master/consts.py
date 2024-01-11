@@ -35,6 +35,7 @@ DISABLE_AUTO_ASSIGN_DEFAULT = False
 HTTP_PROTOCOL_TYPE: HTTPProtocolType = os.getenv("HTTP_PROTOCOL_TYPE", default="auto")
 DOWNLOAD_FILE_TIMEOUT = int(os.getenv("DOWNLOAD_FILE_TIMEOUT", default=10))
 ENABLE_INITIAL_REPORT = strtobool(os.getenv("ENABLE_INITIAL_REPORT", default="True"))
+CI_BUCKET_NAME = os.getenv("CI_BUCKET_NAME", "test-platform-results")
 
 MB = 1000000
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", default=30 * MB))
