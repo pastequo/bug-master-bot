@@ -46,6 +46,7 @@ class BaseChannelConfig:
                         Optional("issue_url"): str,
                         "users": [str],
                     },
+                    Optional("step_name"): str,
                 }
             ],
         }

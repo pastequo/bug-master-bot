@@ -168,7 +168,7 @@ class ProwJobFailure:
         return None, None
 
     async def _update_actions(
-        self, file_path: str, contains: str, config_entry: dict, ignore_others: bool
+        self, file_path: str, contains: str, failed_step: str, config_entry: dict, ignore_others: bool
     ) -> List[Action]:
         reaction = comment = None
         is_applied = False
@@ -177,7 +177,11 @@ class ProwJobFailure:
         description = config_entry.get("description", "")
         action_id = config_entry.get("action_id", None)
 
-        if "job_name" in config_entry and (
+        if failed_step:
+            reaction, comment = config_entry.get("emoji"), config_entry.get("text")
+            is_applied = True
+
+        elif "job_name" in config_entry and (
             self.job_name.startswith(config_entry.get("job_name"))
             or self._resource.full_name.startswith(config_entry.get("job_name"))
         ):
@@ -297,37 +301,54 @@ class ProwJobFailure:
 
                 ignore_others = action_data.get("ignore_others", None)
 
+                failed_step = ""
+                if self._job_steps:
+                    failed_steps = [step for step, step_data in self._job_steps.items() if not step_data["passed"]]
+                    is_step_failed = action_data.get("step_name", "") in failed_steps
+                    failed_step = action_data.get("step_name", "") if is_step_failed else ""
+
                 conditions = action_data.get(
                     "conditions",
                     [
                         {
                             "contains": action_data.get("contains", ""),
                             "file_path": action_data.get("file_path", ""),
+                            "failed_step": failed_step,
                         }
                     ],
                 )
 
                 for condition in conditions:
-                    actions += await self.format_and_update_actions(
+                    added_actions = await self.format_and_update_actions(
                         **condition,
                         config_entry=action_data,
                         ignore_others=ignore_others,
                     )
+                    if added_actions:
+                        actions += added_actions
+                        if ignore_others:
+                            return actions
+
             except UnicodeDecodeError as e:
                 logger.error(f"{e}, Action data: {action_data}")
 
         return actions
 
     async def format_and_update_actions(
-        self, file_path: str, contains: str, config_entry: dict, ignore_others: bool
+        self,
+        file_path: str,
+        contains: str,
+        config_entry: dict,
+        failed_step: str,
+        ignore_others: bool,
     ) -> List[Action]:
-        if not file_path or not contains:
+        if not failed_step and (not file_path or not contains):
             return []
 
         if "{job_name}" in file_path:
             file_path = file_path.format(job_name=self.job_name)
 
-        return await self._update_actions(file_path, contains, config_entry, ignore_others)
+        return await self._update_actions(file_path, contains, failed_step, config_entry, ignore_others)
 
     async def load(self):
         url = self._raw_link.replace(self.MAIN_PAGE_URL, self.BASE_STORAGE_URL)
