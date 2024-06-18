@@ -55,7 +55,7 @@ async def exceptions_middleware(request: Request, call_next: RequestResponseEndp
         request.scope["body"] = body
         return await call_next(request)
 
-    except BaseException as e:
+    except Exception as e:
         err = f"Internal server error - {e.__class__.__name__}: {e}"
         consts.logger.error(
             f"{err}, "

@@ -42,7 +42,7 @@ class RouteValidator:
 async def handle_event_exception(event: Event, **kwargs):
     try:
         await event.handle(**kwargs)
-    except BaseException as e:
+    except Exception as e:
         base_err = "Got error while handled event: "
         logger.error(f"{{{event}}} {base_err}, {e.__class__.__name__} {e}")
         if event.user_id:
@@ -53,7 +53,7 @@ async def handle_event_exception(event: Event, **kwargs):
 async def handle_command_exception(command: Command) -> Response:
     try:
         return await command.handle()
-    except BaseException as e:
+    except Exception as e:
         err = f"Got error while handled command {{{command}}}, {e.__class__.__name__} {e}"
         logger.error(err)
 
