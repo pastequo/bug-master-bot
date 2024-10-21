@@ -1,11 +1,11 @@
-uvicorn==0.31.1
+uvicorn==0.32.0
 slack_sdk==3.33.1
 uvicorn-loguru-integration==0.3.0
-httptools==0.6.1
+httptools==0.6.4
 requests==2.32.3
 aiohttp==3.10.10
 async-cache==1.1.1
-setuptools==75.1.0
+setuptools==75.2.0
 fastapi
 loguru
 starlette
