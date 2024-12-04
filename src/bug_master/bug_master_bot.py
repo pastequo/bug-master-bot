@@ -24,15 +24,26 @@ class BugMasterBot:
         signing_secret: str,
         loop: AbstractEventLoop = None,
     ) -> None:
-        self._sm_client = SocketModeClient(app_token=app_token, web_client=AsyncWebClient(bot_token))
+        self._loop = loop or asyncio.new_event_loop()
+        asyncio.set_event_loop(self._loop)
+        self._bot_token = bot_token  # Ensure these are assigned before using
+        self._app_token = app_token
+        self._signing_secret = signing_secret
         self._verifier = signature.SignatureVerifier(signing_secret)
-        self._loop = loop or asyncio.get_event_loop()
-        self._bot_token = bot_token
         self._config: Dict[str, ChannelFileConfig] = {}
         self._bot_id = None
         self._user_id = None
         self._name = None
         self._org_url = None
+        self._sm_client = self._loop.run_until_complete(self._initialize_sm_client())
+
+    async def _initialize_sm_client(self):
+        """Helper method to initialize SocketModeClient with a running event loop."""
+        return SocketModeClient(app_token=self._app_token, web_client=AsyncWebClient(self._bot_token))
+
+    async def initialize(self):
+        """Initialize async components."""
+        self._sm_client = SocketModeClient(app_token=self._app_token, web_client=AsyncWebClient(self._bot_token))
 
     def __str__(self):
         return f"{self._name}:{self._bot_id} {self._user_id}"
@@ -176,12 +187,15 @@ class BugMasterBot:
         return res
 
     def start(self) -> "BugMasterBot":
-        logger.info("Starting bug_master bot - attempting connect to Slack’s APIs using WebSockets ...")
+        # Initialize the bot asynchronously within the event loop
+        self._loop.run_until_complete(self.initialize())
+        logger.info("Starting BugMaster bot - attempting to connect to Slack’s APIs using WebSockets ...")
         try:
+            # Connect to Slack APIs within the existing event loop
             self._loop.run_until_complete(self._sm_client.connect())
-            logger.info("Connected to bot Slack’s APIs")
+            logger.info("Connected to Slack’s APIs")
         except SlackApiError as e:
-            logger.error(f"Connection to Slack’s APIs failed, {e}")
+            logger.error(f"Connection to Slack’s APIs failed: {e}")
             raise
 
         self._update_bot_info()
